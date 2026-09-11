@@ -96,6 +96,7 @@ cd ..
 rm -rf pkg
 mkdir -p pkg/vendor pkg/src/build/Release
 cp -r sharp-src/lib pkg/lib
+cp -r sharp-src/dist pkg/dist
 cp sharp-src/package.json pkg/package.json
 (cd pkg && patch -p1 < ../patchs/0002-package-json.patch)
 cp sharp-src/src/build/Release/sharp-openharmony-arm64-${SHARP_VERSION}.node pkg/src/build/Release/sharp-openharmony-arm64-${SHARP_VERSION}.node
@@ -157,7 +158,9 @@ export NODE_PATH="$(pwd)/sharp-src/node_modules"
 export OPENSSL_CONF=/dev/null
 node -e '
   const path = require("path");
-  const sharp = require(path.join(process.cwd(), "pkg", "lib", "index.js"));
+  // 0.35.4 入口在 dist/（main = ./dist/index.cjs），lib/ 只剩 d.ts
+  const pkgRoot = path.join(process.cwd(), "pkg");
+  const sharp = require(path.join(pkgRoot, require(path.join(pkgRoot, "package.json")).main));
   (async () => {
     const png = await sharp({
       create: { width: 40, height: 30, channels: 3, background: { r: 5, g: 200, b: 40 } },
