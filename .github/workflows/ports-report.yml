@@ -3,7 +3,10 @@ name: ports-report
 # 周调度：全量 port 的落后报告（tap version-check.yml 的对应物）——不限白名单，
 # 给人决定手工 bump、扩白名单、或推动上游收口/deprecate 的依据。只报告，不动手。
 # 兼职：把 fork main 与上游 main 对齐（merge 上游 main 后推回 fork），
-# 保持 fork main = 上游 main + 自动化文件 这条不变式。
+# 保持「fork main = 上游 main + 自动化文件」不变式——validate leg 依赖它
+# （fork main 的 ports 树 = 上游 main 的 ports 树）。
+#
+# 全程宿主机跑（git/curl/jq/node 齐备），无需 DockerHarmony 容器。
 
 on:
   schedule:
@@ -21,20 +24,8 @@ jobs:
   report:
     if: github.repository == 'social4hyq/ohos-npm-ports'
     runs-on: ubuntu-24.04-arm
-    timeout-minutes: 30
-    container:
-      image: ghcr.io/hqzing/dockerharmony:latest
-      volumes:
-        - /tmp/node24:/__e/node24:rw,rshared
+    timeout-minutes: 15
     steps:
-      - name: Setup node for actions
-        run: |
-          curl -fLO https://github.com/hqzing/ohos-node/releases/download/v24.2.0/node-v24.2.0-openharmony-arm64.tar.gz
-          mkdir /__e/node24/bin
-          tar -zxf node-v24.2.0-openharmony-arm64.tar.gz
-          cp node-v24.2.0-openharmony-arm64/bin/node /__e/node24/bin/node
-          rm -rf node-v24.2.0-openharmony-arm64*
-
       - uses: actions/checkout@v5
         with:
           ref: main

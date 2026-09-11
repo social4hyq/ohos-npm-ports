@@ -1,19 +1,27 @@
 name: autobump
 
 # 日调度：对白名单内、上游已发新版的 port，自动生成新版本目录并向上游仓开 PR。
-# 流水线：check-upstream-versions.sh（候选）→ bump-port.sh（改写）→ validate-port.sh
-# （容器 build + 安装加载冒烟，失败则 PR 不出门）→ push 分支到 fork → curl API 向上游开 PR。
-# 上游合并后由上游 ci.yml 发布 npm（fork 无权也无需参与发布）。
-# 设计文档：docs/ohos-npm-ports-autobump.md（Workspace 仓）。
+# 设计文档：Workspace 仓 docs/ohos-npm-ports-autobump.md。
+#
+# 三个 job 的拆分是被迫的（2026-09-11 首跑实录：DockerHarmony 容器里没有 bash，
+# 含 bash 的步骤一律 `exec: "bash": executable file not found`；上游 ci.yml 之所以
+# 能跑，是它从不显式指定 shell: bash，GitHub 对无 bash 容器回退到 sh）：
+#   job 1 prepare（宿主机，bash）——检测候选、改写目录、push bump 分支到 fork，
+#        并把新 port 目录打成 tar 上传为 artifact；
+#   job 2 validate（容器，matrix）——checkout fork main（自带脚本与工具脚本），
+#        下载 tar 展开进 ports/，只跑 POSIX sh 步骤 + 上游仓自己的 build.sh；
+#        通过的 leg 上传 validated-<port>.json 凭证（无凭证 = 验证失败 = 不开 PR）；
+#   job 3 open-prs（宿主机，bash）——下载凭证、dedup、用 UPSTREAM_PR_TOKEN 开 PR。
+# 附带收益：UPSTREAM_PR_TOKEN 全程不进容器；坏 PR 不出门（社区仓礼仪）。
 #
 # 前置（一次性）：
 # - fork 开启 Actions；
-# - repo setting 允许 Actions push（checkout/commit 走 GITHUB_TOKEN，默认即可）；
 # - secret UPSTREAM_PR_TOKEN：fine-grained PAT，仅授上游仓 ohos-npm-ports/ohos-npm-ports
 #   的 pull_requests:write——fork 的 GITHUB_TOKEN 对上游无写权限。
+#   未配置时 job 1 降级为检测模式（报告照出，不建分支不开 PR，调度不跑红）。
 #
-# 白名单与上游映射维护在 .github/scripts/ports-index.json；
-# hold: true 可暂停单个 port 的自动 bump。
+# 白名单与上游映射维护在 .github/scripts/ports-index.json；hold: true 可暂停单个 port。
+# 注意：容器内的 run 步骤一律 POSIX sh 语法，勿加 shell: bash。
 
 on:
   schedule:
@@ -35,18 +43,52 @@ defaults:
     shell: bash
 
 permissions:
-  contents: write # push bump 分支到 fork
+  contents: write # push bump 分支到 fork（job 1）
 
 jobs:
-  autobump:
-    # 自动化只住在 fork：防本目录随 PR 混入上游后在上游仓误跑（上游无 secret 必然红）
+  prepare:
     if: github.repository == 'social4hyq/ohos-npm-ports'
     runs-on: ubuntu-24.04-arm
-    timeout-minutes: 120
+    timeout-minutes: 15
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Detect candidates, rewrite, push bump branches
+        id: plan
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          UPSTREAM_PR_TOKEN: ${{ secrets.UPSTREAM_PR_TOKEN }} # 仅作检测模式开关，不写上游
+          ONLY_PORT: ${{ inputs.port }}
+          GH_REPO_FORK: social4hyq/ohos-npm-ports
+          GH_REPO_UPSTREAM: ohos-npm-ports/ohos-npm-ports
+        run: .github/scripts/autobump-prepare.sh
+
+      - name: Upload port dirs for validation
+        if: steps.plan.outputs.matrix != '{"include":[]}'
+        uses: actions/upload-artifact@v4
+        with:
+          name: port-dirs
+          path: port-dir-*.tar
+          if-no-files-found: error
+          retention-days: 3
+
+  validate:
+    needs: prepare
+    if: >-
+      github.repository == 'social4hyq/ohos-npm-ports' &&
+      needs.prepare.outputs.matrix != '{"include":[]}'
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.prepare.outputs.matrix).include }}
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 60
     container:
       image: ghcr.io/hqzing/dockerharmony:latest
       volumes:
-        # 与上游 ci.yml 相同：给 actions/checkout 预置可用 node
+        # 与上游 ci.yml 相同：给 actions/checkout 预置可用 node（checkout@v5 = node24）
         - /tmp/node24:/__e/node24:rw,rshared
     steps:
       - name: Setup node for actions
@@ -58,12 +100,60 @@ jobs:
           rm -rf node-v24.2.0-openharmony-arm64*
 
       - uses: actions/checkout@v5
+        # fork main：自带 .github/scripts 与 setup-tools/setup-env，ports 树与上游 main 一致
+        #（由 ports-report 的周同步维持）
 
-      - name: Open bump PRs
+      - name: Download port dir
+        uses: actions/download-artifact@v4
+        with:
+          name: port-dirs
+
+      - name: Unpack new port dir
+        run: tar -xf "port-dir-${{ matrix.port }}.tar"
+
+      - name: Build + smoke
+        run: |
+          ./setup-tools.sh
+          . ./setup-env.sh
+          .github/scripts/validate-port.sh "${{ matrix.port }}" "${{ matrix.to }}"
+
+      - name: Write validated marker
+        if: success()
+        run: |
+          printf '{"port":"%s","from":"%s","to":"%s","branch":"%s"}\n' \
+            "${{ matrix.port }}" "${{ matrix.from }}" "${{ matrix.to }}" "${{ matrix.branch }}" \
+            > validated-${{ matrix.port }}.json
+
+      # 凭证 artifact = 验证通过的唯一凭证：无 artifact = 失败 = job 3 不开 PR
+      - name: Upload validated marker
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr-${{ matrix.port }}
+          path: validated-${{ matrix.port }}.json
+          if-no-files-found: error
+          retention-days: 3
+
+  open-prs:
+    needs: [prepare, validate]
+    if: >-
+      github.repository == 'social4hyq/ohos-npm-ports' &&
+      needs.validate.result == 'success'
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Download validated markers
+        uses: actions/download-artifact@v4
+        with:
+          pattern: pr-*
+          merge-multiple: true
+          path: validated/
+
+      - name: Open PRs to upstream
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           UPSTREAM_PR_TOKEN: ${{ secrets.UPSTREAM_PR_TOKEN }}
-          ONLY_PORT: ${{ inputs.port }}
           GH_REPO_FORK: social4hyq/ohos-npm-ports
           GH_REPO_UPSTREAM: ohos-npm-ports/ohos-npm-ports
-        run: .github/scripts/autobump.sh
+        run: .github/scripts/open-prs.sh validated/
