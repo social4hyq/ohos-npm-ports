@@ -38,9 +38,10 @@ concurrency:
   group: autobump
   cancel-in-progress: false
 
-defaults:
-  run:
-    shell: bash
+# 注意：这里不能设 workflow 级 defaults: run: shell: bash —— validate job 跑在
+# DockerHarmony 容器里，容器没有 bash，显式 bash 会让所有步骤 exit 127（首跑实录）。
+# 宿主机 job 在 Linux runner 上默认就是 bash；容器 job 省略 shell 时 GitHub 回退 sh。
+# 容器内的 run 步骤一律 POSIX sh 语法。
 
 permissions:
   contents: write # push bump 分支到 fork（job 1）
