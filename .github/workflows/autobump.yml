@@ -63,6 +63,10 @@ jobs:
           ONLY_PORT: ${{ inputs.port }}
           GH_REPO_FORK: social4hyq/ohos-npm-ports
           GH_REPO_UPSTREAM: ohos-npm-ports/ohos-npm-ports
+          # 验证期：PR 开在 fork 本仓（GITHUB_TOKEN 即可，不需要 PAT）；
+          # 验证完成后改为 GH_REPO_UPSTREAM 的值并配置 UPSTREAM_PR_TOKEN
+          PR_TARGET_REPO: social4hyq/ohos-npm-ports
+          PR_BASE_BRANCH: upstream-main # fork 内的上游 main 镜像分支，由本工作流维护
         run: .github/scripts/autobump-prepare.sh
 
       - name: Upload port dirs for validation
@@ -151,9 +155,12 @@ jobs:
           merge-multiple: true
           path: validated/
 
-      - name: Open PRs to upstream
+      - name: Open validation PRs (fork target for now)
         env:
+          PR_TARGET_REPO: social4hyq/ohos-npm-ports # 验证期=fork；切上游改回 ohos-npm-ports/ohos-npm-ports
+          PR_BASE_BRANCH: upstream-main
           UPSTREAM_PR_TOKEN: ${{ secrets.UPSTREAM_PR_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # 验证模式（fork 目标）用它开 PR
           GH_REPO_FORK: social4hyq/ohos-npm-ports
           GH_REPO_UPSTREAM: ohos-npm-ports/ohos-npm-ports
         run: .github/scripts/open-prs.sh validated/

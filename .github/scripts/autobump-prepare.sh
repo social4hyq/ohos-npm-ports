@@ -23,10 +23,22 @@ UPSTREAM_GIT="https://github.com/${GH_REPO_UPSTREAM}.git"
 FORK_GIT="https://x-access-token:${GITHUB_TOKEN}@github.com/${GH_REPO_FORK}.git"
 SCRIPTS_DIR="$(cd "$(dirname "$0")" && pwd)"
 
-# UPSTREAM_PR_TOKEN 未配置时降级为纯检测模式：报告照出、不建分支不开 PR（建 PAT 前调度不跑红）
-if [ -z "${UPSTREAM_PR_TOKEN:-}" ]; then
+# PR 目标仓：验证期指向 fork 本仓（PR 开在 fork、基线为镜像分支，GITHUB_TOKEN 全够用，
+# 不需要 PAT）；验证完成后由 workflow 传 ohos-npm-ports/ohos-npm-ports 切回真实目标。
+PR_TARGET_REPO="${PR_TARGET_REPO:-$GH_REPO_UPSTREAM}"
+PR_BASE_BRANCH="${PR_BASE_BRANCH:-main}"
+TARGET_IS_UPSTREAM=0
+[ "$PR_TARGET_REPO" = "$GH_REPO_UPSTREAM" ] && TARGET_IS_UPSTREAM=1
+
+# UPSTREAM_PR_TOKEN 未配置时降级为纯检测模式：报告照出、不建分支不开 PR（建 PAT 前调度不跑红）。
+# 仅上游目标需要 PAT；fork 验证目标用 GITHUB_TOKEN 即可，不存在此降级。
+if [ "$TARGET_IS_UPSTREAM" = 1 ] && [ -z "${UPSTREAM_PR_TOKEN:-}" ]; then
   echo "::warning::UPSTREAM_PR_TOKEN not configured — detection-only mode (no branches, no PRs)"
   export DETECTION_ONLY=1
+fi
+if [ "$TARGET_IS_UPSTREAM" = 0 ] && [ -z "${PR_BASE_BRANCH:-}" ]; then
+  echo "::error::fork-local target requires PR_BASE_BRANCH (mirror branch of upstream main)" >&2
+  exit 1
 fi
 
 echo "== fetching upstream main =="
@@ -72,11 +84,11 @@ if [ "${DETECTION_ONLY:-}" = "1" ]; then
   exit 0
 fi
 
-# 上游 open PR 查重（凭 fork 的 GITHUB_TOKEN；PAT 只在 job 3 用）
+# PR 查重（读公开仓，GITHUB_TOKEN 足够；PAT 只在 job 3 开 PR 时用）
 pr_open_for_head() { # $1 = head (owner:branch)；输出 PR url 或空
   curl -fsS -H "Authorization: Bearer $GITHUB_TOKEN" \
     -H "Accept: application/vnd.github+json" \
-    "$API/repos/$GH_REPO_UPSTREAM/pulls?head=$1&state=open" 2>/dev/null |
+    "$API/repos/$PR_TARGET_REPO/pulls?head=$1&state=open" 2>/dev/null |
     jq -r '.[0].html_url // empty' || true
 }
 
@@ -84,6 +96,15 @@ MAX_PRS=$(jq -r '.max_prs_per_run // 3' "$SCRIPTS_DIR/ports-index.json")
 WT=/tmp/port-worktree
 OPENED=0
 declare -a LEGS=()
+
+# fork 验证模式：确保 PR 基线分支存在（fork 内镜像上游 main 的分支）。
+# bump 分支与它同基，PR diff 才只含 port 目录（fork main 多出 automation 文件，
+# 不能做基线）。镜像分支内容 = 上游 main，force push 语义正确。
+if [ "$TARGET_IS_UPSTREAM" = 0 ]; then
+  git push -q --force "$FORK_GIT" "FETCH_HEAD:refs/heads/$PR_BASE_BRANCH" ||
+    { echo "::error::failed to maintain mirror branch $PR_BASE_BRANCH on fork" >&2; exit 1; }
+  echo "mirror branch $PR_BASE_BRANCH = upstream main ($UPSHA)"
+fi
 
 for line in "${CANDIDATES[@]}"; do
   IFS=$'\t' read -r PORT FROM TO <<< "$line"

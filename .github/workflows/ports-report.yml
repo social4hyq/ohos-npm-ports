@@ -62,3 +62,6 @@ jobs:
           else
             echo "::warning::merge upstream main into fork main conflicted; manual sync needed"
           fi
+          # 维护 fork 内的上游 main 镜像分支 —— autobump 验证模式的 PR 基线
+          git push -q -f "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" \
+            FETCH_HEAD:refs/heads/upstream-main || echo "::warning::upstream-main mirror push failed"
