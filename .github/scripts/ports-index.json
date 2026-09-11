@@ -2,7 +2,7 @@
   "max_prs_per_run": 3,
   "ports": [
     { "port": "ast-grep-napi", "upstream": "@ast-grep/napi", "tag": "latest", "allowlisted": false },
-    { "port": "bufferutil", "upstream": "bufferutil", "tag": "latest", "allowlisted": true },
+    { "port": "bufferutil", "upstream": "bufferutil", "tag": "latest", "allowlisted": true, "hold": true, "note": "4.1.0 上游 prebuilds 布局漂移（无 darwin-x64+arm64 组合目录），自动改写不足以适配，需手工移植后解除 hold" },
     { "port": "bun-pty", "upstream": null, "tag": null, "allowlisted": false },
     { "port": "lightningcss", "upstream": "lightningcss", "tag": "latest", "allowlisted": false, "note": "上游 parcel-bundler/lightningcss#1264 已合并 OHOS 支持，优先推动 deprecate 而非 bump" },
     { "port": "nx", "upstream": "nx", "tag": "latest", "allowlisted": false },
