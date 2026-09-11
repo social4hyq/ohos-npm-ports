@@ -96,6 +96,7 @@ cd ..
 rm -rf pkg
 mkdir -p pkg/vendor pkg/src/build/Release
 cp -r sharp-src/lib pkg/lib
+# 0.35.4 起 JS 运行时在 dist/（main = ./dist/index.cjs），必须随包发布
 cp -r sharp-src/dist pkg/dist
 cp sharp-src/package.json pkg/package.json
 (cd pkg && patch -p1 < ../patchs/0002-package-json.patch)
