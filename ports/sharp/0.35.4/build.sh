@@ -162,7 +162,10 @@ node -e '
   const path = require("path");
   // 0.35.4 入口在 dist/（main = ./dist/index.cjs），lib/ 只剩 d.ts
   const pkgRoot = path.join(process.cwd(), "pkg");
-  const sharp = require(path.join(pkgRoot, require(path.join(pkgRoot, "package.json")).main));
+  const pkgMeta = require(path.join(pkgRoot, "package.json"));
+  const sharp = require(path.join(pkgRoot, pkgMeta.main));
+  // 0.35.4 dist/ 不再透出 format 表——直接问 addon（运行时枚举 vips 操作类）
+  const addon = require(path.join(pkgRoot, "src", "build", "Release", `sharp-openharmony-arm64-${pkgMeta.version}.node`));
   (async () => {
     const png = await sharp({
       create: { width: 40, height: 30, channels: 3, background: { r: 5, g: 200, b: 40 } },
@@ -173,8 +176,9 @@ node -e '
     if (back.info.width !== 40 || back.info.height !== 30) {
       throw new Error("jp2k round-trip size mismatch: " + JSON.stringify(back.info));
     }
-    if (!sharp.format.jp2k || !sharp.format.jp2k.output) {
-      throw new Error("format.jp2k missing or incomplete: " + JSON.stringify(sharp.format.jp2k));
+    const formats = addon.format();
+    if (!formats.jp2k || !formats.jp2k.output || !formats.jp2k.output.buffer) {
+      throw new Error("format.jp2k missing or incomplete: " + JSON.stringify(formats.jp2k));
     }
 
     // avif/heif also depend on libheif, now statically linked into libvips
