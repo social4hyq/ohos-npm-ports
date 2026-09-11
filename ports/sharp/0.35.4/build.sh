@@ -134,13 +134,12 @@ NAME=$(node -e "console.log(require('./pkg/package.json').name)")
 # cross-platform: upstream's platform optionalDependencies must stay intact
 node -e '
   const pkg = require("./pkg/package.json");
-  const n = Object.keys(pkg.optionalDependencies ?? {}).length;
-  if (n !== 24) throw new Error(`optionalDependencies count: ${n}, expected 24`);
-  if (pkg.optionalDependencies["@img/sharp-linux-arm64"] !== "0.35.4")
-    throw new Error("sharp platform subpackage version drifted");
-  if (pkg.optionalDependencies["@img/sharp-libvips-linuxmusl-arm64"] !== "1.2.4")
-    throw new Error("libvips platform subpackage version drifted");
-  console.log("optionalDependencies preserved:", n, "platform packages");
+  const upstream = require("./sharp-src/package.json");
+  if (JSON.stringify(pkg.optionalDependencies) !== JSON.stringify(upstream.optionalDependencies))
+    throw new Error("optionalDependencies drifted from upstream sharp-src");
+  if (pkg.optionalDependencies["@img/sharp-libvips-linuxmusl-arm64"] === undefined)
+    throw new Error("libvips platform subpackage missing");
+  console.log("optionalDependencies preserved:", Object.keys(pkg.optionalDependencies).length, "platform packages");
 '
 
 readelf -h pkg/src/build/Release/sharp-openharmony-arm64-${SHARP_VERSION}.node | grep -q 'AArch64'
