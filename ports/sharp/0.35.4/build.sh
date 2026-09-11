@@ -87,6 +87,7 @@ npm install
 # @img/sharp-* packages); source builds are now the explicit build target.
 npm run build
 
+# 0.35.4 binding.gyp 版本化了产物名（sharp-<(platform_and_arch)-<(sharp_version)），lib 侧 dist/sharp.cjs 按版本名加载
 test -f src/build/Release/sharp-openharmony-arm64-${SHARP_VERSION}.node
 
 cd ..
