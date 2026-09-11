@@ -1,7 +1,8 @@
 #!/bin/sh
 # port 预验证（阶段 2/3，DockerHarmony 容器内跑——容器没有 bash，本脚本必须保持 POSIX sh）：
 # 跑 build.sh + 默认冒烟（npm pack → 安装 → require 加载）。
-# 必须在仓库根运行，且 setup-tools.sh 已执行、setup-env.sh 已 source（与上游 ci.yml 同序）。
+# 必须在仓库根运行；ci-runner 镜像自带全套工具链，无需任何 setup 脚本
+# （与上游 ci.yml 现行 Build 步骤同构：cd 目录 && ./build.sh）。
 #
 # 用法：validate-port.sh <port> <ver>
 #
