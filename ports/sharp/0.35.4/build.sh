@@ -83,7 +83,11 @@ export PKG_CONFIG_PATH="${VIPS_INSTALL}/lib/pkgconfig"
 export SHARP_FORCE_GLOBAL_LIBVIPS=1
 npm install
 
-test -f src/build/Release/sharp-openharmony-arm64.node
+# 0.35.4 removed the "install" script (upstream went prebuilt-only via
+# @img/sharp-* packages); source builds are now the explicit build target.
+npm run build
+
+test -f src/build/Release/sharp-openharmony-arm64-${SHARP_VERSION}.node
 
 cd ..
 
@@ -93,7 +97,7 @@ mkdir -p pkg/vendor pkg/src/build/Release
 cp -r sharp-src/lib pkg/lib
 cp sharp-src/package.json pkg/package.json
 (cd pkg && patch -p1 < ../patchs/0002-package-json.patch)
-cp sharp-src/src/build/Release/sharp-openharmony-arm64.node pkg/src/build/Release/sharp-openharmony-arm64.node
+cp sharp-src/src/build/Release/sharp-openharmony-arm64-${SHARP_VERSION}.node pkg/src/build/Release/sharp-openharmony-arm64-${SHARP_VERSION}.node
 
 # Ship the two libs we build under their bare SONAME (not the fully
 # versioned filename + a symlink) -- symlinks are not reliably preserved
@@ -109,15 +113,15 @@ cp "${VIPS_INSTALL}/lib/libvips-cpp.so.42.20.6" pkg/vendor/libvips-cpp.so.42
 # or use --force"), since editing sections after signing would normally
 # invalidate a real signature. Strip it before patchelf; binary-sign-tool
 # adds a real one afterwards.
-llvm-strip --strip-all pkg/src/build/Release/sharp-openharmony-arm64.node
+llvm-strip --strip-all pkg/src/build/Release/sharp-openharmony-arm64-${SHARP_VERSION}.node
 llvm-strip --strip-all pkg/vendor/libvips-cpp.so.42
 llvm-strip --strip-all pkg/vendor/libvips.so.42
 
-patchelf --set-rpath "\$ORIGIN/../../../vendor:${BREW_PREFIX}/lib" pkg/src/build/Release/sharp-openharmony-arm64.node
+patchelf --set-rpath "\$ORIGIN/../../../vendor:${BREW_PREFIX}/lib" pkg/src/build/Release/sharp-openharmony-arm64-${SHARP_VERSION}.node
 patchelf --set-rpath "\$ORIGIN:${BREW_PREFIX}/lib" pkg/vendor/libvips-cpp.so.42
 patchelf --set-rpath "\$ORIGIN:${BREW_PREFIX}/lib" pkg/vendor/libvips.so.42
 
-for f in pkg/src/build/Release/sharp-openharmony-arm64.node pkg/vendor/libvips.so.42 pkg/vendor/libvips-cpp.so.42; do
+for f in pkg/src/build/Release/sharp-openharmony-arm64-${SHARP_VERSION}.node pkg/vendor/libvips.so.42 pkg/vendor/libvips-cpp.so.42; do
   binary-sign-tool sign -selfSign 1 -inFile "$f" -outFile "$f.signed"
   mv "$f.signed" "$f"
 done
@@ -138,8 +142,8 @@ node -e '
   console.log("optionalDependencies preserved:", n, "platform packages");
 '
 
-readelf -h pkg/src/build/Release/sharp-openharmony-arm64.node | grep -q 'AArch64'
-readelf -S pkg/src/build/Release/sharp-openharmony-arm64.node | grep -q '\.codesign'
+readelf -h pkg/src/build/Release/sharp-openharmony-arm64-${SHARP_VERSION}.node | grep -q 'AArch64'
+readelf -S pkg/src/build/Release/sharp-openharmony-arm64-${SHARP_VERSION}.node | grep -q '\.codesign'
 
 # Real functional smoke test against the FINAL pkg/ layout (RPATH resolved
 # via $ORIGIN + the Harmonybrew prefix, no manual LD_LIBRARY_PATH) -- this is
