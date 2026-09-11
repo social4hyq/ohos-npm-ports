@@ -1,0 +1,69 @@
+name: autobump
+
+# 日调度：对白名单内、上游已发新版的 port，自动生成新版本目录并向上游仓开 PR。
+# 流水线：check-upstream-versions.sh（候选）→ bump-port.sh（改写）→ validate-port.sh
+# （容器 build + 安装加载冒烟，失败则 PR 不出门）→ push 分支到 fork → curl API 向上游开 PR。
+# 上游合并后由上游 ci.yml 发布 npm（fork 无权也无需参与发布）。
+# 设计文档：docs/ohos-npm-ports-autobump.md（Workspace 仓）。
+#
+# 前置（一次性）：
+# - fork 开启 Actions；
+# - repo setting 允许 Actions push（checkout/commit 走 GITHUB_TOKEN，默认即可）；
+# - secret UPSTREAM_PR_TOKEN：fine-grained PAT，仅授上游仓 ohos-npm-ports/ohos-npm-ports
+#   的 pull_requests:write——fork 的 GITHUB_TOKEN 对上游无写权限。
+#
+# 白名单与上游映射维护在 .github/scripts/ports-index.json；
+# hold: true 可暂停单个 port 的自动 bump。
+
+on:
+  schedule:
+    - cron: '0 1 * * *' # 09:00 CST daily
+  workflow_dispatch:
+    inputs:
+      port:
+        description: '限定单个 port（可选；仍须为 behind + allowlisted）'
+        required: false
+        type: string
+
+concurrency:
+  # schedule + manual dispatch 重叠会在同一 bump 分支的 push 上竞态（tap 教训）
+  group: autobump
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+permissions:
+  contents: write # push bump 分支到 fork
+
+jobs:
+  autobump:
+    # 自动化只住在 fork：防本目录随 PR 混入上游后在上游仓误跑（上游无 secret 必然红）
+    if: github.repository == 'social4hyq/ohos-npm-ports'
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 120
+    container:
+      image: ghcr.io/hqzing/dockerharmony:latest
+      volumes:
+        # 与上游 ci.yml 相同：给 actions/checkout 预置可用 node
+        - /tmp/node24:/__e/node24:rw,rshared
+    steps:
+      - name: Setup node for actions
+        run: |
+          curl -fLO https://github.com/hqzing/ohos-node/releases/download/v24.2.0/node-v24.2.0-openharmony-arm64.tar.gz
+          mkdir /__e/node24/bin
+          tar -zxf node-v24.2.0-openharmony-arm64.tar.gz
+          cp node-v24.2.0-openharmony-arm64/bin/node /__e/node24/bin/node
+          rm -rf node-v24.2.0-openharmony-arm64*
+
+      - uses: actions/checkout@v5
+
+      - name: Open bump PRs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          UPSTREAM_PR_TOKEN: ${{ secrets.UPSTREAM_PR_TOKEN }}
+          ONLY_PORT: ${{ inputs.port }}
+          GH_REPO_FORK: social4hyq/ohos-npm-ports
+          GH_REPO_UPSTREAM: ohos-npm-ports/ohos-npm-ports
+        run: .github/scripts/autobump.sh
