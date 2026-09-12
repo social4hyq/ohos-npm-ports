@@ -63,7 +63,21 @@ jobs:
     timeout-minutes: 45
     container:
       image: ghcr.io/ohos-npm-ports/ci-runner:latest
+      volumes:
+        - /tmp/node24:/__e/node24:rw,rshared
     steps:
+      # actions/checkout inside this container needs its own node, same as
+      # ci.yml's identical step — caught for real dispatching this workflow
+      # without it: checkout failed with "exec /__e/node24/bin/node: no
+      # such file or directory" (the volume mount above with nothing
+      # populating it yet).
+      - name: Setup node for actions
+        run: |
+          curl -fLO https://github.com/hqzing/ohos-node/releases/download/v24.2.0/node-v24.2.0-openharmony-arm64.tar.gz
+          mkdir /__e/node24/bin
+          tar -zxf node-v24.2.0-openharmony-arm64.tar.gz
+          cp node-v24.2.0-openharmony-arm64/bin/node /__e/node24/bin/node
+          rm -rf node-v24.2.0-openharmony-arm64*
       - uses: actions/checkout@v5
       - name: Rebuild + smoke
         run: |
