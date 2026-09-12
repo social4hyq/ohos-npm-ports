@@ -177,9 +177,11 @@ node -e '
       throw new Error("jp2k round-trip size mismatch: " + JSON.stringify(back.info));
     }
     const formats = addon.format();
-    if (!formats.jp2k || !formats.jp2k.output || !formats.jp2k.output.buffer) {
-      throw new Error("format.jp2k missing: keys=" + JSON.stringify(Object.keys(formats)) +
-        " jpeg=" + JSON.stringify(formats.jpeg) + " jp2k=" + JSON.stringify(formats.jp2k));
+    // 0.34.x 的键名是 jp2k，0.35.x 改名为 jp2（src/utilities.cc: id = f == "jp2k" ? "jp2" : f）
+    const jp2kEntry = formats.jp2 ?? formats.jp2k;
+    if (!jp2kEntry || !jp2kEntry.output || !jp2kEntry.output.buffer) {
+      throw new Error("format jp2k entry missing: keys=" + JSON.stringify(Object.keys(formats)) +
+        " jp2=" + JSON.stringify(formats.jp2));
     }
 
     // avif/heif also depend on libheif, now statically linked into libvips
