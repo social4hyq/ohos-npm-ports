@@ -51,7 +51,12 @@ if [ -f "$PORTDIR/smoke.sh" ]; then
 fi
 
 echo "== smoke ($PORT $VER): default npm-pack-install-require =="
-TGZ=$(npm pack --silent | tail -1)
+# --ignore-scripts on both pack and install: smoke verifies the artifact
+# build.sh already produced loads correctly, it must never trigger a
+# lifecycle script (prepack/install) that rebuilds a native addon — caught
+# for real against datadog-pprof, whose prepack re-invokes node-gyp and
+# fails outside build.sh's own shell session (no llvm/clang on PATH there).
+TGZ=$(npm pack --silent --ignore-scripts | tail -1)
 [ -f "$TGZ" ] || { echo "error: npm pack produced nothing" >&2; exit 1; }
 TGZ="$PWD/$TGZ"
 # Clean up the packed tgz on every exit path, not just the happy one — a
@@ -64,7 +69,7 @@ SCRATCH=$(mktemp -d)
 (
   cd "$SCRATCH" || exit 1
   npm init -y >/dev/null
-  npm install --no-audit --no-fund "$TGZ" >/dev/null
+  npm install --no-audit --no-fund --ignore-scripts "$TGZ" >/dev/null
 
   # Find the one top-level package install put in place (skip dotfiles;
   # descend one level for a scoped @ohos-npm-ports/... package).
