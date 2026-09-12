@@ -1,0 +1,28 @@
+name: Verify Brew Tap
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/verify-brew-tap.yml"
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04-arm
+    container:
+      image: ghcr.io/ohos-npm-ports/ci-runner:latest
+    steps:
+      - name: brew tap social4hyq/core and install bun
+        run: |
+          brew tap social4hyq/core https://atomgit.com/social4hyq/homebrew-core.git
+          brew install -y social4hyq/core/bun
+          # bottle 的 PT_INTERP 指向 /system/lib（真机布局）；CI 容器 loader 在 /lib
+          if [ ! -e /system/lib/ld-musl-aarch64.so.1 ] && [ -e /lib/ld-musl-aarch64.so.1 ]; then
+            mkdir -p /system/lib
+            ln -s /lib/ld-musl-aarch64.so.1 /system/lib/ld-musl-aarch64.so.1
+          fi
+          bun --version
+          bun -e 'console.log("bun ok:", process.platform, process.arch)'
+          echo 'console.log("build ok")' > /tmp/smoke.ts
+          bun build --target=bun --outfile /tmp/smoke.js /tmp/smoke.ts
+          node /tmp/smoke.js
