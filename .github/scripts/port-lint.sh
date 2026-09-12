@@ -100,6 +100,29 @@ lint_one() {
     echo "⚠️  build.sh has no visible self-verification (grep -q / node -e / readelf); see docs/zh-CN/contributor/verification.md"
   fi
 
+  # --- BLOCKING: build.sh 分区范式（brew 内部流水线同构：deps/fetch/build/package/test） ---
+  # 见 docs/zh-CN/contributor/port-spec.md「build.sh 分区规范」。本规则是全仓唯一
+  # 的迁移例外：存量 port 尚未分区，port-lint 只 lint 被触碰的目录，因此这条
+  # 阻断就是 migrate-on-touch 的强制力——随下次真实修订迁移，不做 style-only
+  # 批量改版（npm 409）。参考实现：ports/opentui-core/0.5.8 与
+  # ports/opentui-core-openharmony-arm64/0.5.8。
+  local phases
+  phases=$(grep -oE '^# =+ (deps|fetch|build|package|test) =+' "$build" 2>/dev/null \
+           | sed -E 's/^# =+ ([a-z]+) =+$/\1/' | tr '\n' ' ')
+  if [ "$phases" != "deps fetch build package test " ]; then
+    echo "❌ build.sh 分区范式缺失或乱序：期望 deps→fetch→build→package→test，实际「${phases:-无}」（见 port-spec.md build.sh 分区规范）"
+    ok=0
+  fi
+  local missing_fn=""
+  local fn
+  for fn in do_deps do_fetch do_build do_package do_test; do
+    grep -qE "^${fn}\(\)" "$build" || missing_fn="$missing_fn $fn"
+  done
+  if [ -n "$missing_fn" ]; then
+    echo "❌ build.sh 缺分区函数:${missing_fn}（见 port-spec.md build.sh 分区规范）"
+    ok=0
+  fi
+
   if [ "$ok" = 1 ]; then
     echo "✅ shape checks passed"
     echo "| \`$dir\` | ✅ | |" >> "$SUMMARY"
