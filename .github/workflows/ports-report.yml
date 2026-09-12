@@ -1,24 +1,17 @@
 name: ports-report
 
-# 周调度：全量 port 的落后报告（tap version-check.yml 的对应物）——不限白名单，
-# 给人决定手工 bump、扩白名单、或推动上游收口/deprecate 的依据。只报告，不动手。
-# 兼职：把 fork main 与上游 main 对齐（merge 上游 main 后推回 fork），
-# 保持「fork main = 上游 main + 自动化文件」不变式——validate leg 依赖它
-# （fork main 的 ports 树 = 上游 main 的 ports 树）。
+# 周调度：全量 port 的落后报告——不限白名单，给人决定手工 bump、扩白名单、或推动上游
+# 收口/deprecate 的依据。只报告，不动手（不建分支、不开 PR，那是 autobump.yml 的事）。
 #
-# 全程宿主机跑（git/curl/jq/node 齐备），无需 DockerHarmony 容器。
+# 全程宿主机跑（git/curl/jq/node 齐备），无需容器。
 
 on:
   schedule:
     - cron: '0 3 * * 1' # Mondays 11:00 CST
   workflow_dispatch:
 
-defaults:
-  run:
-    shell: bash
-
 permissions:
-  contents: write # 同步 fork main
+  contents: read
 
 jobs:
   report:
@@ -27,11 +20,6 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
-        with:
-          ref: main
-
-      - name: Fetch upstream main
-        run: git fetch --quiet https://github.com/ohos-npm-ports/ohos-npm-ports main
 
       - name: Full ports report
         run: |
@@ -40,28 +28,9 @@ jobs:
             echo
             echo "| port | 目录最新版 | 上游最新版 | 状态 | 白名单 |"
             echo "|---|---|---|---|---|"
-            UPSTREAM_REF=FETCH_HEAD .github/scripts/check-upstream-versions.sh |
+            .github/scripts/check-upstream-versions.sh |
             awk -F'\t' '{
               status = ($4 == "behind" && $5 == "true") ? "**behind**" : $4
               printf "| %s | %s | %s | %s | %s |\n", $1, $2, $3, status, $5
             }'
           } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Sync fork main with upstream main
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          git config user.name "autobump[bot]"
-          git config user.email "autobump@users.noreply.github.com"
-          git checkout -q -B sync main
-          # automation 文件只占 .github/，与上游改动路径天然不相交，冲突可能性≈0；
-          # 万一冲突（上游也建了同名路径），宁可不推，留给人工处理
-          if git merge --no-edit --quiet FETCH_HEAD 2>/dev/null; then
-            git push -q "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" \
-              HEAD:main || echo "::warning::fork main push failed"
-          else
-            echo "::warning::merge upstream main into fork main conflicted; manual sync needed"
-          fi
-          # 维护 fork 内的上游 main 镜像分支 —— autobump 验证模式的 PR 基线
-          git push -q -f "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" \
-            FETCH_HEAD:refs/heads/upstream-main || echo "::warning::upstream-main mirror push failed"
