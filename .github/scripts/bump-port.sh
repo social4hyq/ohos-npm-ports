@@ -33,7 +33,7 @@ edit_dir() { # $1 = 目标目录（原地改写）
     # 带右边界（后随字符非数字）：防 0.5.8 ⊂ 0.5.80 类数字尾巴误伤；点号放行（.tgz 等扩展名）
     sed -i "s/$FROM\([^0-9]\)/$TO\1/g; s/$FROM$/$TO/" "$f"
     # 带修订的版本串归一为 -1（nx 类 build.sh 内联 version 改写场景）
-    sed -i -E "s/\"$TO[-_][0-9]+\"/\"$TO-1\"/g" "$f"
+    sed -i -E "s/\"${TO}[-_][0-9]+\"/\"$TO-1\"/g" "$f"
   done
   if [ -d "$d/patchs" ]; then
     for f in "$d/patchs"/*; do
@@ -43,7 +43,7 @@ edit_dir() { # $1 = 目标目录（原地改写）
       # package.json 版本行，两种形态分开改写：
       #   裸版本（pristine/- 行）→ "$TO"——必须等于新上游源码里的真实版本，hunk 才打得上；
       #   带修订（port/+ 行）  → "$TO-1"——port 修订每次 bump 重置。
-      sed -i -E "s/\"version\": \"$FROM[-_][0-9]+\"/\"version\": \"$TO-1\"/g" "$f"
+      sed -i -E "s/\"version\": \"${FROM}[-_][0-9]+\"/\"version\": \"$TO-1\"/g" "$f"
       sed -i -E "s/\"version\": \"$FROM\"/\"version\": \"$TO\"/g" "$f"
       # v 前缀引用（tag/文案，如 "cross-compiled from upstream v0.5.8 source"），
       # 同样带右边界；刻意不给 patchs 加裸版本 catch-all——那会把兄弟子包依赖 pin
