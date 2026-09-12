@@ -178,7 +178,8 @@ node -e '
     }
     const formats = addon.format();
     if (!formats.jp2k || !formats.jp2k.output || !formats.jp2k.output.buffer) {
-      throw new Error("format.jp2k missing or incomplete: " + JSON.stringify(formats.jp2k));
+      throw new Error("format.jp2k missing: keys=" + JSON.stringify(Object.keys(formats)) +
+        " jpeg=" + JSON.stringify(formats.jpeg) + " jp2k=" + JSON.stringify(formats.jp2k));
     }
 
     // avif/heif also depend on libheif, now statically linked into libvips
