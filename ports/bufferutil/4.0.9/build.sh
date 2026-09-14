@@ -22,3 +22,8 @@ mv linux-x64/bufferutil.node linux-x64/@ohos-npm-ports+bufferutil.node
 mv win32-ia32/bufferutil.node win32-ia32/@ohos-npm-ports+bufferutil.node
 mv win32-x64/bufferutil.node win32-x64/@ohos-npm-ports+bufferutil.node
 mv darwin-x64+arm64/bufferutil.node darwin-x64+arm64/@ohos-npm-ports+bufferutil.node
+
+# 自验证：确认包名和 OpenHarmony addon 已生成
+cd ..
+node -e 'if (require("./package.json").name !== "@ohos-npm-ports/bufferutil") throw new Error("unexpected package name")'
+test -f prebuilds/openharmony-arm64/bufferutil.node
