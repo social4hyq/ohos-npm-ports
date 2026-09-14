@@ -71,6 +71,7 @@ ports 这个词一语双关，既表示移植软件，也表示本项目采用 p
 - [contributing.md](docs/zh-CN/contributor/contributing.md) — 开发环境（容器化开发是硬要求）、Fork/PR 流程、commit 规范
 - [porting-guide.md](docs/zh-CN/contributor/porting-guide.md) — 该不该收进这里、遇到具体问题该走哪种移植手法
 - [port-spec.md](docs/zh-CN/contributor/port-spec.md) — port 目录/命名/版本/patch 规范
+- [build-frameworks.md](docs/zh-CN/contributor/build-frameworks.md) — node-gyp / napi-rs / 手写 Rust / 手写 Go 各自的打包方式与标杆包
 - [verification.md](docs/zh-CN/contributor/verification.md) — 怎样才算验证到位
 
 ## 项目治理
