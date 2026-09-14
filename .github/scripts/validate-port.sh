@@ -30,10 +30,15 @@ else
 fi
 echo "-- build ok --"
 
-# 定位产物目录（publish.sh 的 cd 目标；build.sh 产出后 publish.sh 直接进去发包）
-PKGDIR=$(sed -n 's/^cd //p' publish.sh | head -1)
-[ -n "$PKGDIR" ] || { echo "error: cannot parse build dir from publish.sh 'cd' line" >&2; exit 1; }
-[ -d "$PKGDIR" ] || { echo "error: build dir '$PKGDIR' does not exist after build.sh" >&2; exit 1; }
+# 定位产物目录（publish.sh 的 cd 目标；build.sh 产出后 publish.sh 直接进去发包）。
+# eval 整行而不是死抠字面量文本——平台槽位包的 cd 目标可以是
+# `cd "$(dirname "$0")/<pkg>-<ver>"` 这类表达式（parcel-watcher-openharmony-arm64
+# 先例，opentui-core-openharmony-arm64 沿用），不是纯字面量路径；$0 显式绑定成
+# publish.sh 自身路径，跟它被真实调用时看到的 $0 一致。PKGDIR 落地成绝对路径。
+CDLINE=$(sed -n 's/^cd //p' publish.sh | head -1)
+[ -n "$CDLINE" ] || { echo "error: cannot parse build dir from publish.sh 'cd' line" >&2; exit 1; }
+PKGDIR=$(sh -c "cd $CDLINE >/dev/null 2>&1 && pwd" './publish.sh' 2>/dev/null)
+[ -n "$PKGDIR" ] && [ -d "$PKGDIR" ] || { echo "error: build dir from 'cd $CDLINE' does not exist after build.sh" >&2; exit 1; }
 
 PORTDIR="$PWD"
 cd "$PKGDIR"
@@ -46,14 +51,18 @@ if [ -f "$PORTDIR/smoke.sh" ]; then
   exit 0
 fi
 
-TGZ=$(npm pack --silent | tail -1)
+TGZ=$(npm pack --silent --ignore-scripts | tail -1)
 [ -f "$TGZ" ] || { echo "error: npm pack produced nothing" >&2; exit 1; }
+TGZ="$PKGDIR/$TGZ"
+# 清理挂 EXIT trap（而非只在成功路径最后 rm）：失败提前 exit 时也不留残留 tgz；
+# TGZ 落地成绝对路径（PKGDIR 已绝对化）是因为 cwd 在这条路径构造后还会再变。
+trap 'rm -f "$TGZ"' EXIT
 
 SCRATCH=$(mktemp -d)
 (
   cd "$SCRATCH" || exit 1
   npm init -y >/dev/null
-  npm install --no-audit --no-fund "$PORTDIR/$PKGDIR/$TGZ" >/dev/null
+  npm install --no-audit --no-fund --ignore-scripts "$TGZ" >/dev/null
   # 找安装进来的顶层包（跳过 dotfiles 与 scoped 前缀目录本身）
   NAME=$(node -e '
     const fs = require("fs");
@@ -78,6 +87,5 @@ SCRATCH=$(mktemp -d)
   fi
 ) || { echo "error: smoke failed for $PORT $VER" >&2; rm -rf "$SCRATCH"; exit 1; }
 rm -rf "$SCRATCH"
-rm -f "$TGZ"
 
 echo "== validate ok: $PORT $VER =="

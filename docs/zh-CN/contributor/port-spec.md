@@ -72,7 +72,12 @@ cd <构建产物目录>
 npm publish --tag latest --access public
 ```
 
-第二行的 `cd` 目标是「构建产物目录」——CI 的门禁脚本靠 `sed -n 's/^cd //p' publish.sh` 解析这一行来定位产物，**必须是字面量相对路径**，不要用变量或函数包一层。
+第二行的 `cd` 目标是「构建产物目录」——CI 的门禁脚本靠 `sed -n 's/^cd //p' publish.sh` 取出这一行、再用 `sh -c "cd <取出的内容> && pwd"`（`$0` 绑定成 `publish.sh` 自身路径）求出真实目录，不是死抠字面量文本。两种写法都可以：
+
+- 字面量相对路径最简单：`cd sqlite3-5.1.7`（绝大多数 port 用这个）
+- 平台专属子包可以用 `cd "$(dirname "$0")/<pkg>-<ver>"`（`parcel-watcher-openharmony-arm64`、`opentui-core-openharmony-arm64` 先例）——`$0` 保证不依赖调用者的 cwd 就能定位到脚本自己所在目录
+
+不要用别的形式（函数包一层、多行拼接等）——门禁脚本只认这一行、只 eval 这一行，写复杂了会解析不出来。
 
 ## 包名与版本号
 

@@ -33,10 +33,16 @@ ROOT="$PWD"
 cd "$DIR"
 
 # Locate the built package directory the same way publish.sh does: its
-# first `cd <dir>` line names where the packable package.json lives.
-PKGDIR=$(sed -n 's/^cd //p' publish.sh | head -1)
-[ -n "$PKGDIR" ] || { echo "error: cannot parse build dir from publish.sh 'cd' line" >&2; exit 1; }
-[ -d "$PKGDIR" ] || { echo "error: build dir '$PKGDIR' does not exist — did the Build step run first?" >&2; exit 1; }
+# first `cd <dir>` line names where the packable package.json lives. This
+# is eval'd, not treated as literal text — a platform-slot package's cd
+# target can be an expression like `cd "$(dirname "$0")/<pkg>-<ver>"`
+# (parcel-watcher-openharmony-arm64 precedent), not just a plain path; $0
+# is bound to publish.sh's own path to match what it sees when actually
+# run. PKGDIR ends up absolute.
+CDLINE=$(sed -n 's/^cd //p' publish.sh | head -1)
+[ -n "$CDLINE" ] || { echo "error: cannot parse build dir from publish.sh 'cd' line" >&2; exit 1; }
+PKGDIR=$(sh -c "cd $CDLINE >/dev/null 2>&1 && pwd" './publish.sh' 2>/dev/null)
+[ -n "$PKGDIR" ] && [ -d "$PKGDIR" ] || { echo "error: build dir from 'cd $CDLINE' does not exist — did the Build step run first?" >&2; exit 1; }
 
 PORTDIR="$PWD"
 cd "$PKGDIR"
