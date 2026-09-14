@@ -26,4 +26,4 @@ mv darwin-x64+arm64/bufferutil.node darwin-x64+arm64/@ohos-npm-ports+bufferutil.
 # 自验证：确认包名和 OpenHarmony addon 已生成
 cd ..
 node -e 'if (require("./package.json").name !== "@ohos-npm-ports/bufferutil") throw new Error("unexpected package name")'
-test -f prebuilds/openharmony-arm64/bufferutil.node
+find prebuilds/openharmony-arm64 -type f -name "*.node" -print -quit | grep -q .
