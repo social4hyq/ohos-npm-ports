@@ -29,3 +29,8 @@ mv ./prebuilds/linuxmusl-x64/@ohos-npm-ports+sqlite3.node ./prebuilds/linux-x64/
 rm -rf ./sqlite3-v5.1.7-napi-v6*
 rm -rf ./prebuilds/linuxmusl-arm64
 rm -rf ./prebuilds/linuxmusl-x64
+
+# 自验证：确认包名和各平台 addon 已生成
+test -f prebuilds/openharmony-arm64/@ohos-npm-ports+sqlite3.node
+node -e 'if (require("./package.json").name !== "@ohos-npm-ports/sqlite3") throw new Error("unexpected package name")'
+test -f prebuilds/linux-arm64/@ohos-npm-ports+sqlite3.glibc.node
