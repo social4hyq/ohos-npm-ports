@@ -96,4 +96,7 @@ echo "--- 版本信息 ---"
 "${BUILD_DIR}/typescript-${PKG_VERSION}/lib/tsc" --version 2>&1 || true
 echo ""
 echo "=== 构建成功！产物位于: ${BUILD_DIR}/typescript-${PKG_VERSION} ==="
-echo "=== 运行 publish.sh 发布到 npm ==="
+
+node -e 'if (require("./package.json").name !== "@ohos-npm-ports/typescript") throw new Error("unexpected package name")'
+grep -q 'process.platform === "openharmony"' lib/getExePath.js
+ echo "=== 运行 publish.sh 发布到 npm ==="
