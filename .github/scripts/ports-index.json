@@ -27,6 +27,13 @@
       "note": "上游 parcel-bundler/lightningcss#1264 已合并 OHOS 支持，优先推动 deprecate 而非 bump"
     },
     {
+      "port": "next",
+      "upstream": "next",
+      "tag": "latest",
+      "allowlisted": false,
+      "note": "loader/package.json 补丁按版本人工维护（hunk 上下文随上游版本变），autobump 不能机械重用，需人工 bump"
+    },
+    {
       "port": "nx",
       "upstream": "nx",
       "tag": "latest",
