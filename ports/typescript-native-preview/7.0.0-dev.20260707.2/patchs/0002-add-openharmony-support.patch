@@ -1,0 +1,31 @@
+diff --git a/lib/getExePath.js b/lib/getExePath.js
+index ade3d7b..aa22b01 100644
+--- a/lib/getExePath.js
++++ b/lib/getExePath.js
+@@ -8,9 +8,24 @@ export default function getExePath() {
+     const __dirname = path.dirname(fileURLToPath(import.meta.url));
+     const normalizedDirname = __dirname.replace(/\\/g, "/");
+ 
++    // [ohos-npm-ports] OpenHarmony: use the bundled Go binary.
++    if (process.platform === "openharmony") {
++        const exe = path.join(__dirname, "tsgo");
++        if (fs.existsSync(exe)) {
++            return exe;
++        }
++    }
++
+     const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "package.json"), "utf8"));
+     const pkgName = pkg.name;
+-    const baseName = pkgName.startsWith("@") ? pkgName.split("/")[1] : pkgName;
++    // [ohos-npm-ports] Published name is renamed; the OS-specific packages keep
++    // upstream's base name so other platforms still resolve their slot packages.
++    const baseName =
++        pkgName === "@ohos-npm-ports/typescript-native-preview"
++            ? "native-preview"
++            : pkgName.startsWith("@")
++              ? pkgName.split("/")[1]
++              : pkgName;
+     const expectedBinName = baseName === "typescript" ? "tsc" : "tsgo";
+     const binNames = pkg.bin && typeof pkg.bin === "object" ? Object.keys(pkg.bin) : [];
+     if (binNames.length !== 1 || binNames[0] !== expectedBinName) {
+

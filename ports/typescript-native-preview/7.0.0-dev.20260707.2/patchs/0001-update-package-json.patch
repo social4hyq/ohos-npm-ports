@@ -1,0 +1,23 @@
+diff --git a/package.json b/package.json
+index c7e4a59..ff5e81c 100644
+--- a/package.json
++++ b/package.json
+@@ -1,6 +1,6 @@
+ {
+-    "name": "@typescript/native-preview",
+-    "version": "7.0.0-dev.20260707.2",
++    "name": "@ohos-npm-ports/typescript-native-preview",
++    "version": "7.0.0-dev.20260707.2-1",
+     "license": "Apache-2.0",
+     "author": "Microsoft Corp.",
+     "homepage": "https://www.typescriptlang.org/",
+@@ -18,7 +18,8 @@
+     },
+     "repository": {
+         "type": "git",
+-        "url": "https://github.com/microsoft/typescript-go.git"
++        "url": "git+https://github.com/ohos-npm-ports/ohos-npm-ports.git",
++        "directory": "ports/typescript-native-preview/7.0.0-dev.20260707.2"
+     },
+     "type": "module",
+     "preferUnplugged": true,
