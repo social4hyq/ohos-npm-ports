@@ -1,0 +1,60 @@
+{
+  "version": "5.1.1-1",
+  "name": "@ohos-npm-ports/prisma",
+  "description": "Prisma is an open-source database toolkit. It includes a JavaScript/TypeScript ORM for Node.js, migrations and a modern GUI to view and edit the data in your database. You can use Prisma in new projects or add it to an existing one. (OpenHarmony repack: on openharmony, Prisma engines resolve from the @prisma/engines package root instead of being downloaded from binaries.prisma.sh, which has no OHOS builds.)",
+  "keywords": [
+    "orm",
+    "prisma2",
+    "prisma",
+    "cli",
+    "database",
+    "postgresql",
+    "mysql",
+    "sqlite",
+    "mariadb",
+    "mssql",
+    "typescript",
+    "query-builder"
+  ],
+  "main": "build/index.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ohos-npm-ports/ohos-npm-ports.git",
+    "directory": "ports/prisma/5.1.1"
+  },
+  "homepage": "https://www.prisma.io",
+  "author": "Tim Suchanek <suchanek@prisma.io>",
+  "bugs": {
+    "url": "https://github.com/prisma/prisma/issues"
+  },
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=16.13"
+  },
+  "prisma": {
+    "prismaCommit": "8c424d0ccf34899ac7e710145c65aa7e5243d5c7"
+  },
+  "files": [
+    "README.md",
+    "build",
+    "install",
+    "runtime/*.js",
+    "runtime/*.d.ts",
+    "runtime/utils",
+    "runtime/dist",
+    "runtime/llhttp",
+    "prisma-client",
+    "preinstall",
+    "scripts/preinstall-entry.js"
+  ],
+  "bin": {
+    "prisma": "build/index.js"
+  },
+  "dependencies": {
+    "@prisma/engines": "5.1.1"
+  },
+  "sideEffects": false,
+  "scripts": {
+    "preinstall": "node scripts/preinstall-entry.js"
+  }
+}
