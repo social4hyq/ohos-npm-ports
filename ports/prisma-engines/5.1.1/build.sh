@@ -111,23 +111,36 @@ readelf -S pkg/schema-engine | grep -q '\.codesign'
 # 1.1.x" on openharmony; the 3.0.x pair guards against libssl-probe drift).
 # prisma's engine lookup (resolveBinary / generate's copy) scans getEnginesPath
 # = the package root for exactly these names, so overrides of @prisma/engines
-# work without env vars.
-ln -s libquery_engine.so pkg/libquery_engine-debian-openssl-1.1.x.so
-ln -s schema-engine pkg/schema-engine-debian-openssl-1.1.x
-ln -s libquery_engine.so pkg/libquery_engine-debian-openssl-3.0.x.so
-ln -s schema-engine pkg/schema-engine-debian-openssl-3.0.x
+# work without env vars. Real copies, not symlinks: npm pack silently drops
+# symlink entries, and node's require() resolves the symlink before picking
+# the loader, so a symlinked ".so.node" would be parsed as JS instead of
+# dlopened.
+cp pkg/libquery_engine.so pkg/libquery_engine-debian-openssl-1.1.x.so.node
+cp pkg/schema-engine pkg/schema-engine-debian-openssl-1.1.x
+cp pkg/libquery_engine.so pkg/libquery_engine-debian-openssl-3.0.x.so.node
+cp pkg/schema-engine pkg/schema-engine-debian-openssl-3.0.x
+for f in pkg/libquery_engine-debian-openssl-1.1.x.so.node pkg/schema-engine-debian-openssl-1.1.x pkg/libquery_engine-debian-openssl-3.0.x.so.node pkg/schema-engine-debian-openssl-3.0.x; do
+  test -f "$f" && test ! -L "$f" || { echo "alias missing or not a regular file: $f" >&2; exit 1; }
+done
 
 # @prisma/engines compatibility surface (for the overrides route): the prisma
-# CLI accesses exactly these 4 symbols plus the default constant.
+# CLI accesses exactly these 4 symbols plus the default constant, and matches
+# the upstream values (@prisma/engines-version exports the bare commit;
+# DEFAULT_CLI_QUERY_ENGINE_BINARY_TYPE is "libquery-engine" in 5.x, anything
+# else makes the CLI's engineTypeToBinaryType throw).
 node -e '
   const e = require("./pkg/index.js");
   for (const k of ["getEnginesPath", "ensureBinariesExist", "getCliQueryEngineBinaryType", "enginesVersion", "DEFAULT_CLI_QUERY_ENGINE_BINARY_TYPE"]) {
     if (e[k] === undefined) { console.error("missing compat export: " + k); process.exit(1); }
   }
+  if (e.DEFAULT_CLI_QUERY_ENGINE_BINARY_TYPE !== "libquery-engine") { console.error("wrong DEFAULT_CLI_QUERY_ENGINE_BINARY_TYPE: " + e.DEFAULT_CLI_QUERY_ENGINE_BINARY_TYPE); process.exit(1); }
+  if (e.enginesVersion !== "6a3747c37ff169c90047725a05a6ef02e32ac97e") { console.error("wrong enginesVersion: " + e.enginesVersion); process.exit(1); }
   const p = e.getEnginesPath();
-  for (const f of ["libquery_engine-debian-openssl-1.1.x.so", "schema-engine-debian-openssl-1.1.x"]) {
+  for (const f of ["libquery_engine-debian-openssl-1.1.x.so.node", "schema-engine-debian-openssl-1.1.x"]) {
     require("fs").accessSync(require("path").join(p, f));
   }
+  const lib = require(require("path").join(p, "libquery_engine-debian-openssl-1.1.x.so.node"));
+  if (lib.version().commit !== "6a3747c37ff169c90047725a05a6ef02e32ac97e") { console.error("engine commit mismatch"); process.exit(1); }
   console.log("OK: @prisma/engines compatibility surface present at " + p);
 '
 # Real functional smoke: db push + generate + a PrismaClient round-trip.
