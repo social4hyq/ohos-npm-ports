@@ -1,0 +1,84 @@
+{
+  "name": "@ohos-npm-ports/prisma-client",
+  "version": "5.8.0-1",
+  "description": "Prisma Client is an auto-generated, type-safe and modern JavaScript/TypeScript ORM for Node.js that's tailored to your data. Supports PostgreSQL, CockroachDB, MySQL, MariaDB, SQL Server, SQLite & MongoDB databases. (OpenHarmony repack: verified drop-in with @ohos-npm-ports/prisma + @ohos-npm-ports/prisma-engines overrides; no source changes.)",
+  "keywords": [
+    "ORM",
+    "Prisma",
+    "prisma2",
+    "Prisma Client",
+    "client",
+    "query",
+    "query-builder",
+    "database",
+    "db",
+    "JavaScript",
+    "JS",
+    "TypeScript",
+    "TS",
+    "SQL",
+    "SQLite",
+    "pg",
+    "Postgres",
+    "PostgreSQL",
+    "CockroachDB",
+    "MySQL",
+    "MariaDB",
+    "MSSQL",
+    "SQL Server",
+    "SQLServer",
+    "MongoDB"
+  ],
+  "main": "index.js",
+  "browser": "index-browser.js",
+  "types": "index.d.ts",
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=16.13"
+  },
+  "homepage": "https://www.prisma.io",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ohos-npm-ports/ohos-npm-ports.git",
+    "directory": "ports/prisma-client/5.8.0"
+  },
+  "author": "Tim Suchanek <suchanek@prisma.io>",
+  "bugs": "https://github.com/prisma/prisma/issues",
+  "files": [
+    "README.md",
+    "runtime",
+    "!runtime/*.map",
+    "scripts",
+    "generator-build",
+    "edge.js",
+    "edge.d.ts",
+    "index.js",
+    "index.d.ts",
+    "index-browser.js",
+    "extension.js",
+    "extension.d.ts"
+  ],
+  "peerDependencies": {
+    "prisma": "*"
+  },
+  "peerDependenciesMeta": {
+    "prisma": {
+      "optional": true
+    }
+  },
+  "sideEffects": false,
+  "scripts": {
+    "dev": "DEV=true node -r esbuild-register helpers/build.ts",
+    "build": "node -r esbuild-register helpers/build.ts",
+    "test": "dotenv -e ../../.db.env -- jest --silent",
+    "test:e2e": "dotenv -e ../../.db.env -- node -r esbuild-register tests/e2e/_utils/run.ts",
+    "test:functional": "dotenv -e ../../.db.env -- node -r esbuild-register helpers/functional-test/run-tests.ts",
+    "test:memory": "dotenv -e ../../.db.env -- node -r esbuild-register helpers/memory-tests.ts",
+    "test:functional:code": "dotenv -e ../../.db.env -- node -r esbuild-register helpers/functional-test/run-tests.ts --no-types",
+    "test:functional:types": "dotenv -e ../../.db.env -- node -r esbuild-register helpers/functional-test/run-tests.ts --types-only",
+    "test-notypes": "dotenv -e ../../.db.env -- jest --testPathIgnorePatterns src/__tests__/types/types.test.ts",
+    "generate": "node scripts/postinstall.js",
+    "postinstall": "node scripts/postinstall.js",
+    "new-test": "NODE_OPTIONS='-r esbuild-register' yo ./helpers/generator-test/index.ts"
+  }
+}
