@@ -91,7 +91,7 @@ jobs:
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 60
     container:
-      image: ghcr.io/ohos-npm-ports/ci-runner:latest
+      image: ghcr.io/social4hyq/ohos-npm-ports/ci-runner:latest
       volumes:
         # 与上游 ci.yml 相同：给 actions/checkout 预置可用 node（checkout@v5 = node24）
         - /tmp/node24:/__e/node24:rw,rshared

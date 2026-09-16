@@ -62,7 +62,7 @@ jobs:
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 45
     container:
-      image: ghcr.io/ohos-npm-ports/ci-runner:latest
+      image: ghcr.io/social4hyq/ohos-npm-ports/ci-runner:latest
       volumes:
         - /tmp/node24:/__e/node24:rw,rshared
     steps:
