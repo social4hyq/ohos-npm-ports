@@ -1,0 +1,76 @@
+#!/bin/sh
+# 本 port 的 per-port smoke，覆盖 ci.yml / validate-port.sh 里的默认通用 smoke
+# （见 docs/zh-CN/contributor/verification.md「第二层」）。
+#
+# 为什么不能沿用默认那套：默认 smoke 把包 npm pack → 装进临时工程 → 真 require() 一次，
+# 而本 port 平台包的 main 就是 OHOS 的 .node，容器（glibc/Ubuntu）里 dlopen 必然失败：
+#   Error loading shared library libtime_service_ndk.so (...).node
+# 这是 verification.md 写明的盲区「容器验证 ≠ 部署证明」，不是产物缺陷；容器内也没有
+# OHOS NDK 库可补，真机 dlopen 复测按该节约定不在这里做。
+#
+# 所以容器内能判定的部分全部保留，并补上默认 smoke 覆盖不到的打包/解析检查：
+#   1. 产物 ELF：AArch64 + .codesign 段 + napi_register_module_v1 入口
+#      —— strip/签名被绕过、错架构、空壳产物都在这一层被抓住
+#   2. npm pack：tgz 里恰好只有 .node 与 package.json（name/files 声明没跑偏）
+#   3. 双包接线：平台包 name/version ↔ 主包 optionalDependencies ↔ 主包 loader 补丁
+#      三处一致（装机时 next 才找得到、也才加载得到这个 binding）
+#   4. 打包安装 + OHOS 解析链路：双包各自 pack 成 tgz 装进干净工程（主包也必须装
+#      tgz：npm install <目录> 会在 node_modules 里建 symlink，ESM 按 realpath
+#      解析依赖会跑出 scratch），再从主包 loader 的解析上下文 require.resolve
+#      槽位包，断言解析到已安装的 .node（真机 dlopen 属盲区，不在这里做）
+# cwd = 构建产物目录（平台包目录），由 smoke-port.sh / validate-port.sh 保证。
+set -eu
+
+SLOT_DIR="$(pwd)"
+MAIN_DIR="$(dirname "$PWD")/next-16.3.5"
+NODE=next-swc.openharmony-arm64.node
+SLOT_PKG="@ohos-npm-ports/next-swc-openharmony-arm64"
+
+# --- 1. 产物 ELF ---
+readelf -h "$NODE" | grep -q AArch64
+readelf -S "$NODE" | grep -q '\.codesign'
+readelf -s "$NODE" | grep -q napi_register_module_v1
+
+# --- 2. npm pack 内容 ---
+TGZ="$(npm pack --silent --ignore-scripts | tail -1)"
+[ -f "${TGZ}" ] || { echo "error: npm pack produced nothing" >&2; exit 1; }
+
+# --- 3. 双包接线 ---
+node -e '
+  const main = require("../next-16.3.5/package.json");
+  const sub = require("./package.json");
+  if (sub.name !== "@ohos-npm-ports/next-swc-openharmony-arm64") throw new Error("platform pkg name: " + sub.name);
+  if (main.name !== "@ohos-npm-ports/next") throw new Error("main pkg name: " + main.name);
+  if (main.version !== sub.version) throw new Error("version mismatch: " + main.version + " vs " + sub.version);
+  if (main.optionalDependencies[sub.name] !== sub.version) throw new Error("optionalDependencies wiring wrong");
+'
+grep -q openharmony-arm64 ../next-16.3.5/dist/build/swc/index.js
+grep -qF "${SLOT_PKG}" ../next-16.3.5/dist/build/swc/index.js
+
+# --- 4. 打包安装 + OHOS 解析链路 ---
+MAIN_TGZ="$(cd ../next-16.3.5 && npm pack --silent --ignore-scripts | tail -1)"
+MAIN_TGZ="$(cd ../next-16.3.5 && pwd)/${MAIN_TGZ}"
+TGZ="${SLOT_DIR}/${TGZ}"
+SCRATCH="$(mktemp -d)"
+trap 'rm -f "${TGZ}" "${MAIN_TGZ}"; rm -rf "${SCRATCH}"' EXIT
+
+cd "${SCRATCH}"
+npm init -y >/dev/null
+# --force：槽位包 os/cpu 限定 openharmony/arm64，容器（linux）上直装会被
+# EBADPLATFORM 拦下，这里刻意强装以验证 OHOS 解析链路；一次性 scratch 无副作用
+npm install --no-audit --no-fund --ignore-scripts --force \
+    "${TGZ}" "${MAIN_TGZ}" >/dev/null
+
+RESOLVED=$(node -e '
+  const { createRequire } = require("node:module");
+  const req = createRequire(process.argv[1] + "/");
+  console.log(req.resolve(process.argv[2] + "/package.json"));
+' "${SCRATCH}/node_modules/@ohos-npm-ports/next/dist/build/swc" "${SLOT_PKG}")
+case "${RESOLVED}" in
+  */node_modules/"${SLOT_PKG}"/package.json) ;;
+  *) echo "error: slot resolved to ${RESOLVED}, expected the installed slot package" >&2; exit 1 ;;
+esac
+EXE_DIR="$(dirname "${RESOLVED}")"
+test -s "${EXE_DIR}/${NODE}" || { echo "error: resolved slot package has no ${NODE}" >&2; exit 1; }
+
+echo "OK: smoke passed (${SLOT_PKG} ELF + packaging + wiring + installed-slot resolution)"
