@@ -2,6 +2,12 @@ name: CI
 
 on:
   push:
+    # 只监听 main: feature 分支的 push 交给下面的 pull_request 处理,
+    # 否则同仓 PR 的 push 与 pull_request 各触发一次, 白跑一遍容器构建。
+    # main 的 push 仍要构建 —— Publish 与 Build 在同一个 job 里,
+    # 产物不跨 job 传递, 跳过 Build 就无从发布。
+    branches:
+      - main
     paths:
       - "ports/**"
   pull_request:
