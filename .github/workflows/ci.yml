@@ -76,21 +76,56 @@ jobs:
           cd "${{ matrix.dir }}"
           ./build.sh
 
-      # PR 事件下 Publish 不触发, build.sh 的产物目录随 job 结束消失。
-      # 打成 tarball 存进 artifact, 供不经过 npm 的下游取用(如 formula 的测试块)。
+      # PR 事件下 Publish 不触发, 产物随 job 结束消失。打成 tarball 存进 artifact,
+      # 供不经过 npm 的下游取用(如 formula 的测试块)。
+      #
+      # 产物路径由 publish.sh 自己决定(它 cd 到产物目录再 npm publish), 所以这里
+      # 把 publish.sh 里的 npm publish 换成 npm pack, 而不是去猜各 port 的目录结构
+      # —— 单包和多包(如 pnpm 的槽位包 + wrapper)都成立, 各 port 的 build.sh 和
+      # publish.sh 无需改动。npm pack 不认 --tag/--access, 一并剥掉。
       - name: Pack
         run: |
           cd "${{ matrix.dir }}"
-          out=$(find . -maxdepth 1 -mindepth 1 -type d -not -name patchs -not -name build | head -1)
-          if [ -z "$out" ]; then echo "::error::产物目录未找到"; exit 1; fi
-          (cd "$out" && npm pack --pack-destination "$GITHUB_WORKSPACE")
+          sed -e 's|npm publish|npm pack --pack-destination "$ARTIFACTS"|g' \
+              -e 's| *--tag [^ ]*||g' \
+              -e 's| *--access [^ ]*||g' \
+              publish.sh > .publish-release.sh
+          if grep -q 'npm publish' .publish-release.sh; then
+            echo "::error::publish.sh 里的 npm publish 没能全部替换, 请检查格式"
+            exit 1
+          fi
+          mkdir -p artifacts
+          ARTIFACTS="$PWD/artifacts" sh .publish-release.sh
+          ls -1 artifacts/
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: port-${{ strategy.job-index }}
-          path: ${{ github.workspace }}/*.tgz
+          path: ${{ matrix.dir }}/artifacts/*.tgz
           if-no-files-found: error
+
+      # 把 artifact 挂到 release, 供容器外的消费方按公开 URL 取用(容器下 artifact
+      # 需要认证, formula 的测试块取不到)。tag 用 <port>-<version>, 重复构建会覆盖。
+      # 开关是仓库变量 PORTS_RELEASE: fork 里开, 上游不开 —— 否则未经维护者同意
+      # 就发 release, 且会和上游自己的发布流程撞 tag。
+      # 放在 Publish 之前: Publish 在没有 NPM_TOKEN 的 fork 上会失败, 失败后
+      # 本步骤会被跳过。
+      - name: Compute release tag
+        id: reltag
+        if: github.event_name == 'push' && vars.PORTS_RELEASE == 'true'
+        run: |
+          d="${{ matrix.dir }}"
+          echo "tag=$(basename "$(dirname "$d")")-$(basename "$d")" >> "$GITHUB_OUTPUT"
+
+      - name: Publish release
+        if: github.event_name == 'push' && vars.PORTS_RELEASE == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.reltag.outputs.tag }}
+          name: ${{ steps.reltag.outputs.tag }}
+          files: ${{ matrix.dir }}/artifacts/*.tgz
+          fail_on_unmatched_files: true
 
       # 只有直接 push 或 PR 被合入时才会进行发布
       - name: Publish
