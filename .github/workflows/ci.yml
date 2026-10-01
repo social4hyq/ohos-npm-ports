@@ -2,6 +2,10 @@ name: CI
 
 on:
   push:
+    # 只监听 main: feature 分支的 push 交给下面的 pull_request 处理,
+    # 否则同仓 PR 的 push 与 pull_request 各触发一次, 白跑一遍容器构建。
+    # main 的 push 仍要构建 —— Publish 与 Build 在同一个 job 里,
+    # 产物不跨 job 传递, 跳过 Build 就无从发布。
     branches:
       - main
     paths:
@@ -72,8 +76,8 @@ jobs:
           cd "${{ matrix.dir }}"
           ./build.sh
 
-      # PR 事件下 Publish 不触发，build.sh 的产物目录会随 job 结束消失。
-      # 打成 tarball 存进 artifact，供不经过 npm 的下游取用（如 formula 测试）。
+      # PR 事件下 Publish 不触发, build.sh 的产物目录随 job 结束消失。
+      # 打成 tarball 存进 artifact, 供不经过 npm 的下游取用(如 formula 的测试块)。
       - name: Pack
         run: |
           cd "${{ matrix.dir }}"
