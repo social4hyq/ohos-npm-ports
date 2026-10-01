@@ -76,6 +76,22 @@ jobs:
           cd "${{ matrix.dir }}"
           ./build.sh
 
+      # PR 事件下 Publish 不触发, build.sh 的产物目录随 job 结束消失。
+      # 打成 tarball 存进 artifact, 供不经过 npm 的下游取用(如 formula 的测试块)。
+      - name: Pack
+        run: |
+          cd "${{ matrix.dir }}"
+          out=$(find . -maxdepth 1 -mindepth 1 -type d -not -name patchs -not -name build | head -1)
+          if [ -z "$out" ]; then echo "::error::产物目录未找到"; exit 1; fi
+          (cd "$out" && npm pack --pack-destination "$GITHUB_WORKSPACE")
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: port-${{ strategy.job-index }}
+          path: ${{ github.workspace }}/*.tgz
+          if-no-files-found: error
+
       # 只有直接 push 或 PR 被合入时才会进行发布
       - name: Publish
         if: github.event_name == 'push'
