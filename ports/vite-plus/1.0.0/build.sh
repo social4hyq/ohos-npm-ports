@@ -48,7 +48,7 @@ PNPM_VERSION="10"
 
 WORK_DIR="$(pwd)"
 STAGE="${WORK_DIR}/build"
-OUT="${WORK_DIR}/${PKG_NAME}-${PKG_VERSION}"
+OUT="${WORK_DIR}/${PKG_NAME}-${PKG_VERSION}" # ci.yml 的 Pack 步骤按此命名定位产物
 # 0003 放开的 [patch] 路径是相对源树的 ../vite-task, 这里必须同址
 VITE_TASK_DIR="${STAGE}/vite-task"
 
