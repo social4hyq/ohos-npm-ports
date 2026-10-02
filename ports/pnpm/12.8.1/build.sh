@@ -74,7 +74,8 @@ do_build() {
 
     for p in "${WORK_DIR}"/patchs/0001-host-platform-openharmony.patch \
              "${WORK_DIR}"/patchs/0002-iana-time-zone-vendor.patch \
-             "${WORK_DIR}"/patchs/0003-cargo-lock-iana-time-zone.patch; do
+             "${WORK_DIR}"/patchs/0003-cargo-lock-iana-time-zone.patch \
+             "${WORK_DIR}"/patchs/0007-use-ohos-tempdir.patch; do
         (cd "${SRC}" && patch -p1 < "$p")
     done
     # iana-time-zone 运行时 dlopen 改写：vendor 进源码树再打
@@ -88,6 +89,11 @@ do_build() {
     ! grep -q 'e31bc9ad994ba00e440a8aa5c9ef0ec67d5cb5e5cb0cc7f8b744a35b389cc470' \
         "${SRC}/Cargo.lock"
     grep -q 'dlopen' "${SRC}/vendor/iana-time-zone/src/tz_ohos.rs"
+    # 0007: store 操作锁的根目录。pnpm 在 secure_user_lock_dir 里硬编码 /tmp
+    # （刻意不读 TMPDIR，让不同 TMPDIR 的进程仍共享同一把锁），而 OHOS 的
+    # /tmp 只读，于是 install 报 ERR_PNPM_STORE_DIR_OPEN_OPERATION_LOCK。
+    grep -q 'OHOS_TEMP_DIR: &str = "/data/storage/el2/base/cache"' \
+        "${SRC}/pnpm/crates/fs/src/secure_temp_lock.rs"
 
     # aws-lc-sys 构建 CPU Jitter RNG 需要 -O0，superenv 会把它优化掉
     export AWS_LC_SYS_NO_JITTER_ENTROPY=1
@@ -212,6 +218,10 @@ do_test() {
     test -x pnpm
     head -c 4 pnpm | od -An -tx1 | grep -q '7f 45 4c 46'
     ./pnpm --version
+
+    # 真正跑一次 install：0007 修的锁目录问题只有执行才会暴露。
+    # 未打 0007 时这里报 ERR_PNPM_STORE_DIR_OPEN_OPERATION_LOCK（/tmp 只读）。
+    (cd "${SMOKE}/proj" && ./node_modules/@ohos-npm-ports/pnpm/pnpm install --lockfile-only)
 
     # publish.sh 的 cd 目标即发布契约；PR 阶段 CI 跑不到 publish，这里降级成断言
     test -d "${WORK_DIR}/build/${SLOT_NAME}"
