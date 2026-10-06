@@ -10,7 +10,7 @@ set -e
 # revision can still be published without bumping the upstream version.
 
 UPSTREAM_VERSION=1.62.1
-VERSION="$UPSTREAM_VERSION-4"
+VERSION="$UPSTREAM_VERSION-5"
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 cd "$SCRIPT_DIR"
@@ -46,6 +46,7 @@ grep -q "isOpenHarmony() ? resolveCommandPath('ffmpeg')" packages/playwright-cor
 grep -q 'ohosExecutablePath' packages/playwright-core/src/server/chromium/chromium.ts
 grep -q 'closeReported' packages/playwright-core/src/ohos/launcher.ts
 grep -q 'findHarmonybrewHdc' packages/playwright-core/src/ohos/hdc.ts
+grep -q 'hdcEnvironment' packages/playwright-core/src/ohos/hdc.ts
 grep -q "options.channel ?? 'chrome'" packages/playwright-core/src/ohos/launcher.ts
 
 # --- stage 2: install dependencies and build playwright-core ---
@@ -160,6 +161,7 @@ node -e "
   grep -q 'ohosExecutablePath' lib/coreBundle.js
   grep -q 'closeReported' lib/coreBundle.js
   grep -q 'findHarmonybrewHdc' lib/coreBundle.js
+  grep -q 'hdcEnvironment' lib/coreBundle.js
   # openharmony 上 chromium.executablePath() 不能再抛 "Browser is not supported on current platform"：
   # 指定 HDC_BINARY 时必须原样返回它（只在 openharmony 上执行，其它平台走上游逻辑）
   node -e '
@@ -191,6 +193,25 @@ node -e "
     const huawei = ohos.resolveLaunchConfig({});
     if (huawei.bundleName !== "com.huawei.hmos.browser") throw new Error(`HARMONY_BROWSER override = ${huawei.bundleName}`);
     console.log("default browser smoke OK:", def.bundleName);
+  '
+  # 调用方隔离了 HOME 时，HdcBackend 必须用真实用户目录起 hdc（hdc 的服务和授权都在 HOME 下）：
+  # 能确定真实目录时，spawn 用的 env 里的 HOME 必须是一个存在的目录且不是被隔离的那个；
+  # 确定不了（既没有 userInfo 也没有固定目录）时不覆盖，保持原样
+  node -e '
+    if (process.platform !== "openharmony") process.exit(0);
+    const os = require("os"), fs = require("fs");
+    const isolated = fs.mkdtempSync(os.tmpdir() + "/pw-isolated-home-");
+    process.env.HOME = isolated;
+    const { HdcBackend } = require("./lib/ohos");
+    const env = new HdcBackend()._env;
+    if (env === undefined) {
+      console.log("hdc HOME smoke OK: real home not determinable, HOME left as is");
+    } else {
+      if (env.HOME === isolated) throw new Error("hdc env HOME is still the isolated one");
+      if (!fs.statSync(env.HOME).isDirectory()) throw new Error(`hdc env HOME is not a directory: ${env.HOME}`);
+      console.log("hdc HOME smoke OK:", env.HOME);
+    }
+    fs.rmdirSync(isolated);
   '
 )
 
