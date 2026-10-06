@@ -1,0 +1,69 @@
+diff --git a/packages/playwright-core/src/ohos/launcher.ts b/packages/playwright-core/src/ohos/launcher.ts
+index 7bdb077..f3606b9 100644
+--- a/packages/playwright-core/src/ohos/launcher.ts
++++ b/packages/playwright-core/src/ohos/launcher.ts
+@@ -116,15 +116,37 @@ const findDevtoolsSocket = async (hdc: HdcBackend, timeoutMs = 30000): Promise<s
+ };
+ 
+ // The installed-bundle list is queried once per process: querying `bm` on
+-// every launch stalls under test load and its failures must not block the
+-// launch (a failed query means "unknown", not "missing").
++// every launch stalls under test load. Only definite answers are cached — a
++// failed query means "unknown", not "missing", and is reported as hdc's own
++// error instead of "not installed".
+ const installedBundlesCache = new Map<string, boolean>();
+-const assertBrowserInstalled = async (hdc: HdcBackend, bundleName: string): Promise<void> => {
+-  if (!installedBundlesCache.has(bundleName)) {
+-    const result = await hdc.shell(`bm dump -n ${bundleName}`).catch(() => ({ stdout: '', stderr: '', code: 1 }));
+-    installedBundlesCache.set(bundleName, result.code === 0 && result.stdout.includes(bundleName));
++
++// hdc reports most failures (no device, unauthorized, no connect key) on stdout
++// with exit code 0, so a failed query looks like a normal answer that merely
++// lacks the bundle name. Returns hdc's own message when the answer is a failure.
++const hdcFailureMessage = (result: { stdout: string, stderr: string, code: number }): string | undefined => {
++  const fail = /^\[Fail\].*$/m.exec(result.stdout);
++  if (fail)
++    return fail[0].trim();
++  if (result.code !== 0)
++    return (result.stderr || result.stdout).trim() || `exit code ${result.code}`;
++  return undefined;
++};
++
++const assertBrowserInstalled = async (hdc: HdcBackend, bundleName: string, connectionError?: string): Promise<void> => {
++  if (installedBundlesCache.get(bundleName) === true)
++    return;
++  const { result, failure } = await hdc.shell(`bm dump -n ${bundleName}`).then(
++      result => ({ result, failure: hdcFailureMessage(result) }),
++      error => ({ result: { stdout: '', stderr: '', code: 1 }, failure: String(error?.message ?? error).trim() }));
++  if (failure) {
++    const detail = connectionError && !failure.includes(connectionError) ? ` (device connection check: ${connectionError})` : '';
++    throw new Error(`failed to query browser ${bundleName} on the device with hdc (${hdc.binary}): ${failure}${detail}. ` +
++        `Make sure the device is connected and authorized: \`hdc list targets\` should show Connected.`);
+   }
+-  if (!installedBundlesCache.get(bundleName))
++  const installed = result.stdout.includes(bundleName);
++  installedBundlesCache.set(bundleName, installed);
++  if (!installed)
+     throw new Error(`browser ${bundleName} is not installed on the device`);
+ };
+ 
+@@ -155,13 +177,16 @@ const startBrowserViaHdc = async (hdc: HdcBackend, config: LaunchConfig): Promis
+   const ohosAa = resolveOhosAa();
+   // The socket path always needs an HDC connection; the tcp path needs one
+   // only when ohos-aa is unavailable. A failed check must not block the
+-  // launch: the device is usually already connected.
++  // launch: the device is usually already connected. The message is kept so a
++  // later failure can report the real cause.
++  let connectionError: string | undefined;
+   if (!ohosAa || config.kind === 'socket') {
+     await hdc.ensureDeviceConnected().catch(error => {
+-      ohosLog(`device connection check failed: ${String(error.message).slice(0, 100)}`);
++      connectionError = String(error.message);
++      ohosLog(`device connection check failed: ${connectionError.slice(0, 100)}`);
+     });
+   }
+-  await assertBrowserInstalled(hdc, config.bundleName);
++  await assertBrowserInstalled(hdc, config.bundleName, connectionError);
+   await hdc.cleanupStaleForwards();
+   // Best-effort cleanup: a failed force-stop under load must not block the
+   // launch, aa start brings the browser up regardless.
