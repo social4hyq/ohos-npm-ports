@@ -158,7 +158,7 @@ node -e "
     console.log("lib/ohos smoke OK: HdcBackend/launchViaHdc/takeScreenshot present, playwright-core re-export resolves");
   '
 
-  # 0008/0009 的修改必须真的进了打包产物（coreBundle 由 esbuild 生成，标记写在源码里不代表产物里有）
+  # 设备浏览器相关的修改（executablePath、launchServer 关闭、hdc 查找与 HOME、报错）必须真的进了打包产物（coreBundle 由 esbuild 生成，标记写在源码里不代表产物里有）
   grep -q 'ohosExecutablePath' lib/coreBundle.js
   grep -q 'closeReported' lib/coreBundle.js
   grep -q 'findHarmonybrewHdc' lib/coreBundle.js
