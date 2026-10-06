@@ -1,0 +1,73 @@
+diff --git a/packages/playwright-core/src/ohos/utils.ts b/packages/playwright-core/src/ohos/utils.ts
+index 1081842..6776192 100644
+--- a/packages/playwright-core/src/ohos/utils.ts
++++ b/packages/playwright-core/src/ohos/utils.ts
+@@ -3,6 +3,7 @@ import { execFile, execFileSync } from 'child_process';
+ import fs from 'fs';
+ import http from 'http';
+ import net from 'net';
++import path from 'path';
+ 
+ export interface ExecResult {
+   stdout: string;
+@@ -136,3 +137,33 @@ export const waitForEndpoint = async (url: string, timeoutMs = 30000): Promise<v
+   }
+   throw new Error(`Endpoint ${url} did not become ready: ${lastError?.message ?? 'unknown error'}`);
+ };
++
++/**
++ * The host-side executable that starts the device browser. Device browsers
++ * have no local binary, so `BrowserType.executablePath()` returns the `hdc`
++ * binary instead of throwing "Browser is not supported on current platform":
++ * callers (test configs, installers) only read this path and hand it back to
++ * launch()/launchServer(), which ignore it on openharmony.
++ *
++ * The playwright server evaluates executablePath() while it is created, i.e.
++ * on every require of playwright-core, so this only consults HDC_BINARY and
++ * scans PATH — resolveCommandPath() would spawn login shells. When hdc is not
++ * found it falls back to the bare command name, the same fallback HdcBackend
++ * uses, so a missing hdc surfaces later as hdc's own launch error instead of
++ * a misleading "Browser is not supported on current platform".
++ */
++export const ohosExecutablePath = (): string => {
++  if (process.env.HDC_BINARY)
++    return process.env.HDC_BINARY;
++  for (const dir of (process.env.PATH || '').split(path.delimiter)) {
++    if (!dir)
++      continue;
++    const candidate = path.join(dir, 'hdc');
++    try {
++      fs.accessSync(candidate, fs.constants.X_OK);
++      return candidate;
++    } catch {
++    }
++  }
++  return 'hdc';
++};
+diff --git a/packages/playwright-core/src/server/chromium/chromium.ts b/packages/playwright-core/src/server/chromium/chromium.ts
+index ad7da08..5d2d1d9 100644
+--- a/packages/playwright-core/src/server/chromium/chromium.ts
++++ b/packages/playwright-core/src/server/chromium/chromium.ts
+@@ -39,7 +39,7 @@ import { registry } from '../registry';
+ import { WebSocketTransport } from '../transport';
+ import { CRDevTools } from './crDevTools';
+ import { launchViaHdc } from '../../ohos/launcher';
+-import { isOpenHarmony } from '../../ohos/utils';
++import { isOpenHarmony, ohosExecutablePath } from '../../ohos/utils';
+ import { Browser } from '../browser';
+ import { Worker } from '../page';
+ import { CRExecutionContext, createHandle } from './crExecutionContext';
+@@ -72,6 +72,13 @@ export class Chromium extends BrowserType {
+       this._devtools = this._createDevTools();
+   }
+ 
++  override executablePath(): string {
++    // Device browsers have no local executable; report the host-side hdc binary so callers get a usable path.
++    if (isOpenHarmony())
++      return ohosExecutablePath();
++    return super.executablePath();
++  }
++
+   override launch(progress: Progress, options: types.LaunchOptions, protocolLogger?: types.ProtocolLogger): Promise<Browser> {
+     // On openharmony, chromium.launch() delegates to the HDC launcher, which
+     // starts an on-device browser and connects over CDP.

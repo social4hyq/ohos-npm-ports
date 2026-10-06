@@ -1,0 +1,39 @@
+diff --git a/packages/playwright-core/src/ohos/launcher.ts b/packages/playwright-core/src/ohos/launcher.ts
+index 6bc0775..33bd014 100644
+--- a/packages/playwright-core/src/ohos/launcher.ts
++++ b/packages/playwright-core/src/ohos/launcher.ts
+@@ -229,6 +229,18 @@ const patchBrowserClose = (browser: Browser, hdc: HdcBackend, config: LaunchConf
+     const ohosAa = resolveOhosAa();
+     await hdc.close(config.bundleName, ohosAa ? ohosAaForceStop(ohosAa) : undefined);
+   };
++  // A process-based browser reports its exit through browserProcess.onclose,
++  // which launchServer() relies on to close its WebSocket server and emit
++  // "close". The device browser has no child process, so nothing ever called
++  // onclose and the server kept listening after BrowserServer.close(),
++  // keeping the host process alive. Report the close ourselves, once.
++  let closeReported = false;
++  const reportClosed = () => {
++    if (closeReported)
++      return;
++    closeReported = true;
++    browserProcess.onclose?.(0, null);
++  };
+   const originalClose = browserProcess.close.bind(browserProcess);
+   const originalKill = browserProcess.kill.bind(browserProcess);
+   browserProcess.close = async () => {
+@@ -236,6 +248,7 @@ const patchBrowserClose = (browser: Browser, hdc: HdcBackend, config: LaunchConf
+       await originalClose();
+     } finally {
+       await stop();
++      reportClosed();
+     }
+   };
+   browserProcess.kill = async () => {
+@@ -243,6 +256,7 @@ const patchBrowserClose = (browser: Browser, hdc: HdcBackend, config: LaunchConf
+       await originalKill();
+     } finally {
+       await stop();
++      reportClosed();
+     }
+   };
+ };

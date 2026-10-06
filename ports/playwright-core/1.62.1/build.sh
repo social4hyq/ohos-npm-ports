@@ -10,7 +10,7 @@ set -e
 # revision can still be published without bumping the upstream version.
 
 UPSTREAM_VERSION=1.62.1
-VERSION="$UPSTREAM_VERSION-2"
+VERSION="$UPSTREAM_VERSION-3"
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 cd "$SCRIPT_DIR"
@@ -43,6 +43,8 @@ echo "==> verifying patch markers"
 test -f packages/playwright-core/src/ohos/launcher.ts
 grep -q 'harmonyBundleName' packages/protocol/spec/mixins.yml
 grep -q "isOpenHarmony() ? resolveCommandPath('ffmpeg')" packages/playwright-core/src/server/registry/index.ts
+grep -q 'ohosExecutablePath' packages/playwright-core/src/server/chromium/chromium.ts
+grep -q 'closeReported' packages/playwright-core/src/ohos/launcher.ts
 
 # --- stage 2: install dependencies and build playwright-core ---
 
@@ -150,6 +152,30 @@ node -e "
     // node_modules/playwright-core in that layout.
     if (typeof ohos.chromium?.launch !== "function") throw new Error("lib/ohos re-export of playwright-core is broken");
     console.log("lib/ohos smoke OK: HdcBackend/launchViaHdc/takeScreenshot present, playwright-core re-export resolves");
+  '
+
+  # 0008/0009 的修改必须真的进了打包产物（coreBundle 由 esbuild 生成，标记写在源码里不代表产物里有）
+  grep -q 'ohosExecutablePath' lib/coreBundle.js
+  grep -q 'closeReported' lib/coreBundle.js
+  # openharmony 上 chromium.executablePath() 不能再抛 "Browser is not supported on current platform"：
+  # 指定 HDC_BINARY 时必须原样返回它（只在 openharmony 上执行，其它平台走上游逻辑）
+  node -e '
+    if (process.platform !== "openharmony") { console.log("executablePath smoke skipped (not openharmony)"); process.exit(0); }
+    process.env.HDC_BINARY = process.execPath;
+    const { chromium } = require("./index.js");
+    const p = chromium.executablePath();
+    if (p !== process.execPath) throw new Error(`executablePath() = ${JSON.stringify(p)}`);
+    console.log("executablePath smoke OK:", p);
+  '
+  # 找不到 hdc 时兜底为裸命令名 hdc（与 HdcBackend 的兜底一致），而不是空串导致客户端抛“平台不支持”
+  node -e '
+    if (process.platform !== "openharmony") process.exit(0);
+    delete process.env.HDC_BINARY;
+    process.env.PATH = "";
+    const { chromium } = require("./index.js");
+    const p = chromium.executablePath();
+    if (p !== "hdc") throw new Error(`executablePath() fallback = ${JSON.stringify(p)}`);
+    console.log("executablePath fallback smoke OK:", p);
   '
 )
 
