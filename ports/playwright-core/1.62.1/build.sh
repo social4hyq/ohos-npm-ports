@@ -10,7 +10,7 @@ set -e
 # revision can still be published without bumping the upstream version.
 
 UPSTREAM_VERSION=1.62.1
-VERSION="$UPSTREAM_VERSION-5"
+VERSION="$UPSTREAM_VERSION-6"
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 cd "$SCRIPT_DIR"
@@ -47,6 +47,7 @@ grep -q 'ohosExecutablePath' packages/playwright-core/src/server/chromium/chromi
 grep -q 'closeReported' packages/playwright-core/src/ohos/launcher.ts
 grep -q 'findHarmonybrewHdc' packages/playwright-core/src/ohos/hdc.ts
 grep -q 'hdcEnvironment' packages/playwright-core/src/ohos/hdc.ts
+grep -q 'hdcFailureMessage' packages/playwright-core/src/ohos/launcher.ts
 grep -q "options.channel ?? 'chrome'" packages/playwright-core/src/ohos/launcher.ts
 
 # --- stage 2: install dependencies and build playwright-core ---
@@ -162,6 +163,7 @@ node -e "
   grep -q 'closeReported' lib/coreBundle.js
   grep -q 'findHarmonybrewHdc' lib/coreBundle.js
   grep -q 'hdcEnvironment' lib/coreBundle.js
+  grep -q 'hdcFailureMessage' lib/coreBundle.js
   # openharmony 上 chromium.executablePath() 不能再抛 "Browser is not supported on current platform"：
   # 指定 HDC_BINARY 时必须原样返回它（只在 openharmony 上执行，其它平台走上游逻辑）
   node -e '
@@ -212,6 +214,34 @@ node -e "
       console.log("hdc HOME smoke OK:", env.HOME);
     }
     fs.rmdirSync(isolated);
+  '
+  # hdc 连不上时 launch() 的报错必须带上 hdc 的真实错误，不能被吞成“browser ... is not installed”。
+  # 用假的 hdc 脚本模拟两种情况：hdc 报 [Fail] 但退出码为 0（它的常见失败方式）→ 报错里要有这行；
+  # hdc 正常回答但没有这个包 → 仍然是“is not installed”。只在 openharmony 上执行（launch 的 hdc 流程只在那里走）。
+  node -e '
+    if (process.platform !== "openharmony") { console.log("hdc error smoke skipped (not openharmony)"); process.exit(0); }
+    const fs = require("fs"), os = require("os"), path = require("path");
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pw-fake-hdc-"));
+    const fake = path.join(dir, "hdc");
+    fs.writeFileSync(fake, "#!/bin/sh\ncase \"$*\" in\n  \"list targets\") echo fake-device ;;\n  *) echo \"$FAKE_HDC_REPLY\" ;;\nesac\n", { mode: 0o755 });
+    process.env.HDC_BINARY = fake;
+    delete process.env.HARMONY_BROWSER;
+    const { chromium } = require("./index.js");
+    const attempt = async (reply) => {
+      process.env.FAKE_HDC_REPLY = reply;
+      try { await chromium.launch({ timeout: 20000 }); } catch (e) { return String(e.message); }
+      throw new Error("launch() unexpectedly succeeded with a fake hdc");
+    };
+    (async () => {
+      const failed = await attempt("[Fail]ExecuteCommand need connect-key? please confirm a device by help info");
+      if (!failed.includes("need connect-key")) throw new Error(`hdc error swallowed: ${failed}`);
+      if (failed.includes("is not installed")) throw new Error(`hdc failure reported as not installed: ${failed}`);
+      const missing = await attempt("error: bundle not found");
+      if (!missing.includes("is not installed on the device")) throw new Error(`missing bundle not reported: ${missing}`);
+      console.log("hdc error reporting smoke OK");
+      fs.rmSync(dir, { recursive: true, force: true });
+      process.exit(0);
+    })().catch(e => { console.error(e.message); process.exit(1); });
   '
 )
 
