@@ -10,7 +10,7 @@ set -e
 # revision can still be published without bumping the upstream version.
 
 UPSTREAM_VERSION=1.62.1
-VERSION="$UPSTREAM_VERSION-3"
+VERSION="$UPSTREAM_VERSION-4"
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 cd "$SCRIPT_DIR"
@@ -45,6 +45,8 @@ grep -q 'harmonyBundleName' packages/protocol/spec/mixins.yml
 grep -q "isOpenHarmony() ? resolveCommandPath('ffmpeg')" packages/playwright-core/src/server/registry/index.ts
 grep -q 'ohosExecutablePath' packages/playwright-core/src/server/chromium/chromium.ts
 grep -q 'closeReported' packages/playwright-core/src/ohos/launcher.ts
+grep -q 'findHarmonybrewHdc' packages/playwright-core/src/ohos/hdc.ts
+grep -q "options.channel ?? 'chrome'" packages/playwright-core/src/ohos/launcher.ts
 
 # --- stage 2: install dependencies and build playwright-core ---
 
@@ -157,6 +159,7 @@ node -e "
   # 0008/0009 的修改必须真的进了打包产物（coreBundle 由 esbuild 生成，标记写在源码里不代表产物里有）
   grep -q 'ohosExecutablePath' lib/coreBundle.js
   grep -q 'closeReported' lib/coreBundle.js
+  grep -q 'findHarmonybrewHdc' lib/coreBundle.js
   # openharmony 上 chromium.executablePath() 不能再抛 "Browser is not supported on current platform"：
   # 指定 HDC_BINARY 时必须原样返回它（只在 openharmony 上执行，其它平台走上游逻辑）
   node -e '
@@ -167,15 +170,27 @@ node -e "
     if (p !== process.execPath) throw new Error(`executablePath() = ${JSON.stringify(p)}`);
     console.log("executablePath smoke OK:", p);
   '
-  # 找不到 hdc 时兜底为裸命令名 hdc（与 HdcBackend 的兜底一致），而不是空串导致客户端抛“平台不支持”
+  # HDC_BINARY 未设、PATH 为空时：有 Harmonybrew ohos-sdk 就返回它的 hdc，没有就兜底为裸命令名 hdc
+  # （与 HdcBackend 的兜底一致），都不能是空串（空串会让客户端抛“平台不支持”）
   node -e '
     if (process.platform !== "openharmony") process.exit(0);
     delete process.env.HDC_BINARY;
     process.env.PATH = "";
     const { chromium } = require("./index.js");
     const p = chromium.executablePath();
-    if (p !== "hdc") throw new Error(`executablePath() fallback = ${JSON.stringify(p)}`);
+    if (p !== "hdc" && !/\/ohos-sdk\/(toolchains|bin)\/hdc$/.test(p)) throw new Error(`executablePath() fallback = ${JSON.stringify(p)}`);
     console.log("executablePath fallback smoke OK:", p);
+  '
+  # 默认浏览器是海泰浏览器（chrome 通道，com.haitai.htbrowser）；HARMONY_BROWSER 仍可覆盖
+  node -e '
+    const ohos = require("./lib/ohos");
+    delete process.env.HARMONY_BROWSER;
+    const def = ohos.resolveLaunchConfig({});
+    if (def.bundleName !== "com.haitai.htbrowser") throw new Error(`default browser = ${def.bundleName}`);
+    process.env.HARMONY_BROWSER = "huaweiBrowser";
+    const huawei = ohos.resolveLaunchConfig({});
+    if (huawei.bundleName !== "com.huawei.hmos.browser") throw new Error(`HARMONY_BROWSER override = ${huawei.bundleName}`);
+    console.log("default browser smoke OK:", def.bundleName);
   '
 )
 
