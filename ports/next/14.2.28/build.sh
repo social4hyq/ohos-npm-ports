@@ -116,7 +116,7 @@ do_build() {
     grep -q 'hashbrown 0.14.3'; then
     patch -p1 < "$ROOT/patchs/0008-turbo-hashbrown-lock.patch"
   fi
-  CARGO_ENCODED_RUSTFLAGS= cargo fetch --locked --target "$HOST_TRIPLE"
+  CARGO_ENCODED_RUSTFLAGS= cargo fetch --target "$HOST_TRIPLE"
   INCLUDE_DIR_MACROS=$(find "$CARGO_HOME/registry/src" -type d \
     -name include_dir_macros-0.7.3 -print -quit)
   [ -n "$INCLUDE_DIR_MACROS" ]
