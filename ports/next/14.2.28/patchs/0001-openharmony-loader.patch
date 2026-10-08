@@ -1,5 +1,8 @@
 --- a/dist/build/swc/index.js
 +++ b/dist/build/swc/index.js
+@@ -78 +78 @@
+-const _triples = require("next/dist/compiled/@napi-rs/triples");
++const _triples = require("../../compiled/@napi-rs/triples");
 @@ -142,6 +142,10 @@
  };
  const getSupportedArchTriples = ()=>{
