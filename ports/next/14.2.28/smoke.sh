@@ -17,13 +17,15 @@ trap 'rm -f "${SLOT_DIR}/${TGZ}" "${MAIN_TGZ}"; rm -rf "${SCRATCH}"' EXIT
 cd "${SCRATCH}"
 npm init -y >/dev/null
 npm install --no-audit --no-fund --ignore-scripts --force \
-  "${SLOT_DIR}/${TGZ}" "${MAIN_TGZ}" >/dev/null
+  "${SLOT_DIR}/${TGZ}" >/dev/null
+mkdir -p node_modules/next
+tar -xzf "${MAIN_TGZ}" --strip-components=1 -C node_modules/next
 
 RESOLVED=$(node -e '
   const { createRequire } = require("node:module");
   const req = createRequire(process.argv[1] + "/");
   console.log(req.resolve(process.argv[2] + "/package.json"));
-' "${SCRATCH}/node_modules/@ohos-npm-ports/next/dist/build/swc" "${SLOT_PKG}")
+' "${SCRATCH}/node_modules/next/dist/build/swc" "${SLOT_PKG}")
 case "${RESOLVED}" in
   */node_modules/"${SLOT_PKG}"/package.json) ;;
   *) echo "error: slot resolved to ${RESOLVED}, expected the installed slot package" >&2; exit 1 ;;
@@ -32,11 +34,11 @@ test -s "$(dirname "${RESOLVED}")/${NODE}"
 node <<'NODE'
 const assert = require("node:assert/strict");
 assert.equal(process.platform, "openharmony");
-const mainPackage = require("@ohos-npm-ports/next/package.json");
+const mainPackage = require("next/package.json");
 assert.equal(mainPackage.version, "14.2.28-1");
 const slot = require("@ohos-npm-ports/next-swc-openharmony-arm64");
 assert.equal(typeof slot.transformSync, "function");
-const swc = require("@ohos-npm-ports/next/dist/build/swc");
+const swc = require("next/dist/build/swc");
 const triples = swc.getSupportedArchTriples();
 assert.equal(triples.openharmony.arm64[0].platformArchABI, "openharmony-arm64");
 swc.loadBindings().then((bindings) => {
