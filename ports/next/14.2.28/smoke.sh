@@ -1,7 +1,9 @@
 #!/bin/sh
 set -eu
 
-SLOT_DIR="$(pwd)"
+ROOT=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+SLOT_DIR="$ROOT/next-swc-openharmony-arm64"
+cd "$SLOT_DIR"
 NODE=next-swc.openharmony-arm64.node
 SLOT_PKG="@ohos-npm-ports/next-swc-openharmony-arm64"
 
