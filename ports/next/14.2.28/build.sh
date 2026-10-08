@@ -218,3 +218,4 @@ do_fetch
 do_build
 do_package
 do_test
+sh "$ROOT/smoke.sh"
