@@ -1,0 +1,84 @@
+name: Published versions multi-OS audit
+
+on:
+  schedule:
+    - cron: '0 4 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  discover:
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.versions.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - id: versions
+        run: echo "matrix=$(node .github/scripts/registry-version-matrix.mjs)" >> "$GITHUB_OUTPUT"
+
+  openharmony:
+    needs: discover
+    name: OHOS ${{ matrix.name }}@${{ matrix.version }}
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.discover.outputs.matrix) }}
+    container:
+      image: ghcr.io/ohos-npm-ports/ci-runner:latest
+      volumes:
+        - /tmp/node24:/__e/node24:rw,rshared
+    steps:
+      - name: Setup node for actions
+        run: |
+          curl -fLO https://github.com/hqzing/ohos-node/releases/download/v24.2.0/node-v24.2.0-openharmony-arm64.tar.gz
+          mkdir /__e/node24/bin
+          tar -zxf node-v24.2.0-openharmony-arm64.tar.gz
+          cp node-v24.2.0-openharmony-arm64/bin/node /__e/node24/bin/node
+          rm -rf node-v24.2.0-openharmony-arm64*
+      - uses: actions/checkout@v5
+      - name: Test exact published version
+        env:
+          PACKAGE_CASE: ${{ toJson(matrix) }}
+        run: node .github/scripts/probe-published-package.mjs
+
+  linux:
+    needs: discover
+    name: Linux ${{ matrix.name }}@${{ matrix.version }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.discover.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Test exact published version
+        env:
+          PACKAGE_CASE: ${{ toJson(matrix) }}
+        run: node .github/scripts/probe-published-package.mjs
+
+  windows:
+    needs: discover
+    name: Windows ${{ matrix.name }}@${{ matrix.version }}
+    runs-on: windows-2025
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.discover.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Test exact published version
+        env:
+          PACKAGE_CASE: ${{ toJson(matrix) }}
+        run: node .github/scripts/probe-published-package.mjs

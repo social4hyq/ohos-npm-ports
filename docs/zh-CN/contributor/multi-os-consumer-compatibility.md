@@ -13,15 +13,21 @@ CI 平台为：
 - OpenHarmony：复用仓库 `ci-runner` 容器，在 GitHub-hosted ARM runner 上执行；
 - Windows 与 Linux：使用 GitHub-hosted runner 原生执行，不经 OpenHarmony 容器。
 
-第一阶段使用少量代表性包覆盖原生 addon、平台二进制和纯 JS/工具包路径，先验证 workflow 的真实性与稳定性。后续按包增加 fixture/API probe，并逐步扩成全量清单；不能把“代表性矩阵全绿”表述为所有 ports 均已验证。
+代表性消费 fixture 与逐包逐版本的发布包探针是两层覆盖：前者验证典型依赖组合、override 和真实前端构建；后者负责遍历 registry 中 scope 的全量版本。
 
 ## 触发与门禁
 
-- 变更测试 fixture、CI 脚本或 port 时运行；
-- 支持手动 dispatch 和定期全量回归；
+- 代表性消费 fixture 随 port / fixture / workflow 变更运行；
+- 全版本审计支持手动 dispatch 和每周全量回归；
 - 首轮在 fork 上观察 OpenHarmony/Windows/Linux 三侧真实运行结果，再决定是否作为上游阻塞门禁；
 - 测试摘要要标明 OS、Node/npm 版本、具体包版本及失败阶段。构建/安装、API 探针分别记录，不能把不适用项伪报为通过。
 
 ## 当前覆盖
 
-当前 fixture 覆盖 `bufferutil`、`lightningcss`、`sharp`、`sqlite3`、`typescript` 五个 port，并使用 `lightningcss` override 执行 Vue/Vite 生产构建与预览服务探测。安装显式包含 devDependencies；OpenHarmony 安装后运行 `ohos-signpost` 为 `.node` 依赖签名，Windows/Linux 则验证原平台二进制选择及功能。它们只是验证框架的首批代表包，不代表已覆盖仓库中所有 `@ohos-npm-ports` 产物。扩面时应增补具有明确最小 API probe 的包，并对确实不支持跨 OS 的运行路径标注范围，而不是静默跳过。
+# 多 OS / 全版本验证
+
+`Published versions multi-OS audit` 每周从 npm 官方 registry 动态读取 `@ohos-npm-ports` scope 的完整包清单和每个包的全部已发布版本；OHOS、Linux、Windows 分别对精确版本执行全新安装，再运行包声明的 CLI（`--version`/`--help`）或加载主入口。新增发布版本会自动进入矩阵，无需维护手工版本列表。可通过 Actions 的 `workflow_dispatch` 手动启动。
+
+每个 OS 独立展开版本矩阵，当前 87 个 package-version case / OS，未超过 GitHub 单矩阵 256 项限制。声明了不兼容 `os`/`cpu` 的普通包会失败；仅明确平台二进制槽（如 `*-openharmony-arm64`、`pnpm-exe.openharmony-arm64`）在 Windows/Linux 标记为 N/A，因为它们只供 OHOS 父包解析，父包在三 OS 的精确版本测试负责验证降级/平台选择。此类 N/A 不等于声称该二进制可跨 OS 运行。
+
+此审计针对 registry 中**已发布**的历史版本，是回归与漂移检测，不应单独视为新版本发布前门禁。严格保证后续发布版本都已通过三 OS，需要把 `ci.yml` 的当前 build+publish 同 job 改成：构建并 pack → 三 OS 对同一个待发布 tarball 安装/探测 → 全部成功后 publish。不能先发布到 npm 再验证；否则失败版本已对用户可见。当前消费者 fixture（Vite/Vue 真实集成）继续作为代表性集成测试，与逐包逐版本探针互补。
