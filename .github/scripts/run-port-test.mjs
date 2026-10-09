@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, join, resolve } from 'node:path';
 
@@ -45,6 +45,37 @@ const exec = (command, args, options = {}) => {
   if (result.status !== 0) throw new Error(`${command} exited ${result.status ?? result.signal}`);
 };
 
+function diagnoseInstalledPackages() {
+  const wanted = new Set(['pnpm', 'bun-pty', 'pnpm-exe.openharmony-arm64', 'exe.linux-x64', 'exe.win32-x64']);
+  const visit = (directory, depth = 0) => {
+    if (depth > 5 || !existsSync(directory)) return;
+    let entries;
+    try { entries = readdirSync(directory, { withFileTypes: true }); } catch { return; }
+    for (const entry of entries) {
+      if (!entry.isDirectory() && !entry.isSymbolicLink()) continue;
+      if (entry.name.startsWith('.')) continue;
+      const path = join(directory, entry.name);
+      if (entry.name.startsWith('@')) {
+        visit(path, depth + 1);
+        continue;
+      }
+      if (wanted.has(entry.name)) {
+        const manifest = join(path, 'package.json');
+        if (existsSync(manifest)) {
+          console.error(`[diagnostic] ${path}: ${readFileSync(manifest, 'utf8')}`);
+        }
+        if (entry.name === 'bun-pty') {
+          const binaryDir = join(path, 'rust-pty', 'target', 'release');
+          try { console.error(`[diagnostic] ${binaryDir}: ${readdirSync(binaryDir).join(', ')}`); }
+          catch { console.error(`[diagnostic] missing ${binaryDir}`); }
+        }
+      }
+      visit(path, depth + 1);
+    }
+  };
+  visit(join(cwd, 'node_modules'));
+};
+
 try {
   mkdirSync(fixture);
   const fixtureDependencies = { [consumerName]: upstreamVersion };
@@ -85,6 +116,9 @@ try {
   } else {
     exec(process.execPath, ['test.js']);
   }
+} catch (error) {
+  diagnoseInstalledPackages();
+  throw error;
 } finally {
   // Windows may briefly keep native modules or child processes locked after
   // the smoke test exits. Use Node's built-in retry to avoid reporting a
