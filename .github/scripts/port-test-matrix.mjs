@@ -9,6 +9,7 @@ async function json(url) {
 }
 
 const packages = [];
+const { readFile } = await import('node:fs/promises');
 for (const port of await readdir('ports', { withFileTypes: true })) {
   if (!port.isDirectory()) continue;
   for (const upstream of await readdir(join('ports', port.name), { withFileTypes: true })) {
@@ -34,7 +35,9 @@ for (const port of await readdir('ports', { withFileTypes: true })) {
       console.error(`No published revision for ${name} ${upstream.name}; skipping registry-based matrix entry`);
       continue;
     }
-    packages.push({ packageName: name, packageVersion: candidates.at(-1).version, testFile });
+    const source = await readFile(testFile, 'utf8');
+    const testRuntime = source.match(/^\/\/ @test-runtime:\s*(.+)$/m)?.[1].trim() ?? 'node';
+    packages.push({ packageName: name, packageVersion: candidates.at(-1).version, testFile, testRuntime });
   }
 }
 if (!packages.length) throw new Error('No ports with test.js found');

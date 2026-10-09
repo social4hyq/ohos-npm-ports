@@ -1,2 +1,12 @@
 // @test-package: yuku-codegen
-const assert=require('node:assert/strict');(async()=>{const {generate}=await import('yuku-codegen'),program={type:'Program',sourceType:'module',body:[{type:'VariableDeclaration',kind:'const',declarations:[{type:'VariableDeclarator',id:{type:'Identifier',name:'answer'},init:{type:'Literal',value:42,raw:'42'}}]}]},result=generate(program);assert.equal(typeof result.code,'string');assert.match(result.code,/const\s+answer\s*=\s*42/);assert.deepEqual(result.errors,[]);})().catch(e=>{console.error(e);process.exitCode=1;});
+// @test-dependency: yuku-parser@0.8.3=npm:@ohos-npm-ports/yuku-parser@0.8.3-1
+const assert = require('node:assert/strict');
+(async () => {
+  const { parse } = await import('yuku-parser');
+  const { print } = await import('yuku-codegen');
+  const { program, diagnostics } = parse('const answer = 42;');
+  assert.equal(diagnostics.length, 0);
+  const result = print(program);
+  assert.match(result.code, /const\s+answer\s*=\s*42/);
+  assert.deepEqual(result.errors, []);
+})().catch((error) => { console.error(error); process.exitCode = 1; });

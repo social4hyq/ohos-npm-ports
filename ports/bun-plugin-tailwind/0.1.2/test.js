@@ -1,5 +1,6 @@
 // @test-runtime: bun
-// @test-dependency: bun@npm:@ohos-npm-ports/bun@1.4.2-1
+// @test-dependency: bun@1.4.2=npm:@ohos-npm-ports/bun@1.4.2-1
+// @test-dependency-platforms: openharmony
 // @test-package: bun-plugin-tailwind
 const assert=require('node:assert/strict');
 (async()=>{const {default:plugin}=await import('bun-plugin-tailwind');

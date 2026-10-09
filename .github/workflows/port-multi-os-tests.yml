@@ -24,7 +24,7 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
       - id: set
         run: |
           matrix=$(node .github/scripts/port-test-matrix.mjs)
@@ -71,7 +71,9 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
+      - uses: oven-sh/setup-bun@v2
+        if: matrix.testRuntime == 'bun'
       - name: Execute package test.js
         env:
           PACKAGE_NAME: ${{ matrix.packageName }}
