@@ -10,9 +10,11 @@ on:
       - main
     paths:
       - "ports/**"
+      - "!ports/**/test.js"
   pull_request:
     paths:
       - "ports/**"
+      - "!ports/**/test.js"
 
 jobs:
   # 检测哪些目录的文件有变化，截取出 ports/<name>/<version> 这一级
