@@ -1,0 +1,76 @@
+name: multi-os-consumer-compat
+
+on:
+  pull_request:
+    paths:
+      - 'ports/**'
+      - 'test/multi-os-consumer/**'
+      - '.github/workflows/multi-os-consumer-compat.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'ports/**'
+      - 'test/multi-os-consumer/**'
+      - '.github/workflows/multi-os-consumer-compat.yml'
+  schedule:
+    - cron: '0 5 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: multi-os-consumer-compat-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  openharmony:
+    name: OpenHarmony consumer probes
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    container:
+      image: ghcr.io/social4hyq/ohos-npm-ports/ci-runner:latest
+      volumes:
+        - /tmp/node24:/__e/node24:rw,rshared
+    steps:
+      - name: Setup node for actions
+        run: |
+          curl -fLO https://github.com/hqzing/ohos-node/releases/download/v24.2.0/node-v24.2.0-openharmony-arm64.tar.gz
+          mkdir /__e/node24/bin
+          tar -zxf node-v24.2.0-openharmony-arm64.tar.gz
+          cp node-v24.2.0-openharmony-arm64/bin/node /__e/node24/bin/node
+          rm -rf node-v24.2.0-openharmony-arm64*
+      - uses: actions/checkout@v5
+      - name: Show runtime
+        run: node --version && npm --version && node -p 'process.platform + "/" + process.arch'
+      - name: Install consumer fixture
+        working-directory: test/multi-os-consumer
+        run: npm ci --include=dev
+      - name: Sign native dependencies
+        working-directory: test/multi-os-consumer
+        run: npm run sign:native
+      - name: Run consumer API probes
+        working-directory: test/multi-os-consumer
+        run: npm test
+
+  windows-linux:
+    name: ${{ matrix.os }} consumer probes
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2025]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Show runtime
+        run: node --version && npm --version
+      - name: Install consumer fixture
+        working-directory: test/multi-os-consumer
+        run: npm ci --include=dev
+      - name: Run consumer API probes
+        working-directory: test/multi-os-consumer
+        run: npm test

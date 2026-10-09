@@ -1,0 +1,27 @@
+{
+  "name": "ohos-npm-ports-multi-os-consumer",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Consumer-style override fixture for OpenHarmony, Windows, and Linux compatibility checks.",
+  "scripts": {
+    "sign:native": "ohos-signpost",
+    "test": "node test.cjs"
+  },
+  "dependencies": {
+    "compat-consumer": "file:./consumer"
+  },
+  "devDependencies": {
+    "ohos-signpost": "^1.1.1"
+  },
+  "allowScripts": {
+    "@ohos-npm-ports/bufferutil@4.0.9-7": true,
+    "@ohos-npm-ports/sqlite3@5.1.7-8": true
+  },
+  "overrides": {
+    "bufferutil": "npm:@ohos-npm-ports/bufferutil@4.0.9-7",
+    "lightningcss": "npm:@ohos-npm-ports/lightningcss@1.33.0-1",
+    "sharp": "npm:@ohos-npm-ports/sharp@0.34.5-1",
+    "sqlite3": "npm:@ohos-npm-ports/sqlite3@5.1.7-8",
+    "typescript": "npm:@ohos-npm-ports/typescript@7.0.2-3"
+  }
+}
