@@ -58,6 +58,8 @@ jobs:
       image: ghcr.io/ohos-npm-ports/ci-runner:latest
       volumes:
         - /tmp/node24:/__e/node24:rw,rshared
+    env:
+      RUSTUP_DIST_SERVER: https://static.rust-lang.org
     steps:
       # 预置 Node.js。这版 Node.js 仅供 actions/checkout 使用，不会对构建业务产生干扰。
       - name: Setup node for actions
