@@ -14,12 +14,15 @@ const consumerName = metadata('test-package') ?? packageName;
 const runtime = metadata('test-runtime') ?? 'node';
 const supportedPlatforms = metadata('test-platforms')?.split(',').map((platform) => platform.trim());
 const unsupportedReason = metadata('test-platform-reason');
+const dependencyPlatforms = metadata('test-dependency-platforms')?.split(',').map((platform) => platform.trim());
 const testDependencies = [...testSource.matchAll(/^\/\/ @test-dependency: (\S+)$/gm)]
-  .map((match) => match[1])
-  .filter((_, index) => {
-    const platforms = testSource.match(new RegExp(`^// @test-dependency-platforms:\\s*(.+)$`, 'm'))?.[1].split(',').map((platform) => platform.trim());
-    return !platforms || platforms.includes(process.platform);
-  });
+  .map((match) => {
+    const [spec, ...attributes] = match[1].split(';');
+    const platforms = attributes.find((attribute) => attribute.startsWith('platforms='))?.slice('platforms='.length).split(',');
+    return { spec, platforms };
+  })
+  .filter(({ platforms }) => (!dependencyPlatforms || dependencyPlatforms.includes(process.platform))
+    && (!platforms || platforms.includes(process.platform)));
 const upstreamVersion = basename(resolve(testFile, '..'));
 
 if (!['node', 'bun'].includes(runtime)) throw new Error(`Unsupported test runtime: ${runtime}`);
@@ -46,7 +49,7 @@ try {
   mkdirSync(fixture);
   const fixtureDependencies = { [consumerName]: upstreamVersion };
   const dependencyOverrides = {};
-  for (const spec of testDependencies) {
+  for (const { spec } of testDependencies) {
     const [upstream, replacement] = spec.split('=');
     if (!replacement?.startsWith('npm:')) throw new Error(`Test dependency must use upstream=port alias syntax: ${spec}`);
     const at = upstream.startsWith('@') ? upstream.indexOf('@', upstream.indexOf('/') + 1) : upstream.indexOf('@');
@@ -78,7 +81,7 @@ try {
   copyFileSync(resolve(testFile), join(cwd, 'test.js'));
   if (runtime === 'bun') {
     const localBun = join(cwd, 'node_modules', '.bin', process.platform === 'win32' ? 'bun.cmd' : 'bun');
-    exec(process.platform === 'openharmony' || testDependencies.some((spec) => spec.startsWith('bun@')) ? localBun : 'bun', ['test.js']);
+    exec(process.platform === 'openharmony' || testDependencies.some(({ spec }) => spec.startsWith('bun@')) ? localBun : 'bun', ['test.js']);
   } else {
     exec(process.execPath, ['test.js']);
   }

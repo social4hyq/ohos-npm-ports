@@ -1,6 +1,6 @@
 // @test-package: @prisma/client
 // @test-dependency: prisma@5.1.1=npm:@ohos-npm-ports/prisma@5.1.1-1
-// @test-dependency: @prisma/engines@5.1.1=npm:@ohos-npm-ports/prisma-engines@5.1.1-3
+// @test-dependency: @prisma/engines@5.1.1=npm:@ohos-npm-ports/prisma-engines@5.1.1-3;platforms=openharmony
 const assert=require('node:assert/strict'),fs=require('node:fs'),{spawnSync}=require('node:child_process'),{join}=require('node:path');
 (async()=>{const dir=join(process.cwd(),'prisma-smoke');fs.mkdirSync(dir,{recursive:true});fs.writeFileSync(join(dir,'schema.prisma'), `generator client {
   provider = "prisma-client-js"

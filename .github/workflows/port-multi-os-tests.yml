@@ -74,6 +74,8 @@ jobs:
           node-version: 24
       - uses: oven-sh/setup-bun@v2
         if: matrix.testRuntime == 'bun'
+        with:
+          bun-version: 1.4.2
       - name: Execute package test.js
         env:
           PACKAGE_NAME: ${{ matrix.packageName }}
