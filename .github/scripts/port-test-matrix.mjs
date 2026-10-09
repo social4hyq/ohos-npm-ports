@@ -32,4 +32,5 @@ for (const port of await readdir('ports', { withFileTypes: true })) {
   }
 }
 if (!packages.length) throw new Error('No ports with test.js found');
-process.stdout.write(JSON.stringify({ include: packages }));
+const linuxWindows = packages.flatMap((test) => ['ubuntu-24.04', 'windows-2025'].map((os) => ({ ...test, os })));
+process.stdout.write(JSON.stringify({ openharmony: packages, linuxWindows }));

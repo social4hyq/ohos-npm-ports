@@ -18,14 +18,18 @@ jobs:
   discover:
     runs-on: ubuntu-24.04
     outputs:
-      matrix: ${{ steps.set.outputs.matrix }}
+      openharmony: ${{ steps.set.outputs.openharmony }}
+      linuxWindows: ${{ steps.set.outputs.linuxWindows }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v4
         with:
           node-version: 22
       - id: set
-        run: echo "matrix=$(node .github/scripts/port-test-matrix.mjs)" >> "$GITHUB_OUTPUT"
+        run: |
+          matrix=$(node .github/scripts/port-test-matrix.mjs)
+          echo "openharmony=$(node -e 'console.log(JSON.stringify({include:JSON.parse(process.argv[1]).openharmony}))' "$matrix")" >> "$GITHUB_OUTPUT"
+          echo "linuxWindows=$(node -e 'console.log(JSON.stringify({include:JSON.parse(process.argv[1]).linuxWindows}))' "$matrix")" >> "$GITHUB_OUTPUT"
 
   openharmony:
     needs: discover
@@ -34,7 +38,7 @@ jobs:
     timeout-minutes: 20
     strategy:
       fail-fast: false
-      matrix: ${{ fromJson(needs.discover.outputs.matrix) }}
+      matrix: ${{ fromJson(needs.discover.outputs.openharmony) }}
     container:
       image: ghcr.io/ohos-npm-ports/ci-runner:latest
       volumes:
@@ -62,9 +66,7 @@ jobs:
     timeout-minutes: 20
     strategy:
       fail-fast: false
-      matrix:
-        os: [ubuntu-24.04, windows-2025]
-        include: ${{ fromJson(needs.discover.outputs.matrix).include }}
+      matrix: ${{ fromJson(needs.discover.outputs.linuxWindows) }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v4
