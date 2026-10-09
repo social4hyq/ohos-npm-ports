@@ -98,6 +98,12 @@ lint_one() {
     echo "⚠️  build.sh has no visible self-verification (grep -q / node -e / readelf); see docs/zh-CN/contributor/verification.md"
   fi
 
+  # WARNING during the rollout; this becomes blocking after all existing ports
+  # have an OS-specific consumer test.js.
+  if [ ! -f "$dir/test.js" ]; then
+    echo "⚠️  missing package-specific test.js; see docs/zh-CN/contributor/port-multi-os-tests.md"
+  fi
+
   if [ "$ok" = 1 ]; then
     echo "✅ shape checks passed"
     echo "| \`$dir\` | ✅ | |" >> "$SUMMARY"
