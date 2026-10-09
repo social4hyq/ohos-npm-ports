@@ -86,5 +86,8 @@ try {
     exec(process.execPath, ['test.js']);
   }
 } finally {
-  rmSync(cwd, { recursive: true, force: true });
+  // Windows may briefly keep native modules or child processes locked after
+  // the smoke test exits. Use Node's built-in retry to avoid reporting a
+  // successful package test as failed during fixture cleanup.
+  rmSync(cwd, { recursive: true, force: true, maxRetries: 10, retryDelay: 1000 });
 }
