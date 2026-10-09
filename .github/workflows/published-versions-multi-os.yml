@@ -1,6 +1,12 @@
 name: Published versions multi-OS audit
 
 on:
+  pull_request:
+    paths:
+      - 'ports/**'
+      - '.github/scripts/registry-version-matrix.mjs'
+      - '.github/scripts/probe-published-package.mjs'
+      - '.github/workflows/published-versions-multi-os.yml'
   schedule:
     - cron: '0 4 * * 1'
   workflow_dispatch:
