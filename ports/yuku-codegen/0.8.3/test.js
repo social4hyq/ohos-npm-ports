@@ -1,0 +1,2 @@
+// @test-package: yuku-codegen
+const assert=require('node:assert/strict');(async()=>{const {generate}=await import('yuku-codegen'),program={type:'Program',sourceType:'module',body:[{type:'VariableDeclaration',kind:'const',declarations:[{type:'VariableDeclarator',id:{type:'Identifier',name:'answer'},init:{type:'Literal',value:42,raw:'42'}}]}]},result=generate(program);assert.equal(typeof result.code,'string');assert.match(result.code,/const\s+answer\s*=\s*42/);assert.deepEqual(result.errors,[]);})().catch(e=>{console.error(e);process.exitCode=1;});

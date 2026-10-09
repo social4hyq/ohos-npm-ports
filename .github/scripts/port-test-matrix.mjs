@@ -27,7 +27,13 @@ for (const port of await readdir('ports', { withFileTypes: true })) {
       .map((version) => ({ version, match: version.match(revision) }))
       .filter(({ match }) => match)
       .sort((a, b) => Number(a.match[1]) - Number(b.match[1]));
-    if (!candidates.length) throw new Error(`No published numeric revision found for ${name} ${upstream.name}`);
+    if (!candidates.length) {
+      // A new port directory can have a test.js before its first npm publish.
+      // Its build is covered by CI/build-and-publish; registry-based consumer
+      // tests begin once that upstream version line exists in npm.
+      console.error(`No published revision for ${name} ${upstream.name}; skipping registry-based matrix entry`);
+      continue;
+    }
     packages.push({ packageName: name, packageVersion: candidates.at(-1).version, testFile });
   }
 }

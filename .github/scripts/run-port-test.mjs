@@ -1,14 +1,31 @@
 import { spawnSync } from 'node:child_process';
-import { copyFileSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { basename, join, resolve } from 'node:path';
 
 const { PACKAGE_NAME: packageName, PACKAGE_VERSION: packageVersion, TEST_FILE: testFile, PORT_TARBALL: tarball } = process.env;
 if (!packageName || !packageVersion || !testFile) {
   throw new Error('Set packageName, packageVersion, and testFile');
 }
 
+const testSource = readFileSync(resolve(testFile), 'utf8');
+const metadata = (key) => testSource.match(new RegExp(`^// @${key}:\\s*(.+)$`, 'm'))?.[1].trim();
+const consumerName = metadata('test-package') ?? packageName;
+const runtime = metadata('test-runtime') ?? 'node';
+const supportedPlatforms = metadata('test-platforms')?.split(',').map((platform) => platform.trim());
+const unsupportedReason = metadata('test-platform-reason');
+const testDependencies = [...testSource.matchAll(/^\/\/ @test-dependency: (\S+)$/gm)].map((match) => match[1]);
+const upstreamVersion = basename(resolve(testFile, '..'));
+
+if (!['node', 'bun'].includes(runtime)) throw new Error(`Unsupported test runtime: ${runtime}`);
+if (supportedPlatforms && !supportedPlatforms.includes(process.platform)) {
+  if (!unsupportedReason) throw new Error(`Platform restriction for ${testFile} must include @test-platform-reason`);
+  console.log(`N/A on ${process.platform}: ${unsupportedReason}`);
+  process.exit(0);
+}
+
 const cwd = mkdtempSync(join(process.env.RUNNER_TEMP ?? process.env.TMPDIR ?? tmpdir(), 'ohos-port-test-'));
+const fixture = join(cwd, 'fixture');
 const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 const exec = (command, args, options = {}) => {
   const result = spawnSync(command, args, {
@@ -21,15 +38,38 @@ const exec = (command, args, options = {}) => {
 };
 
 try {
-  writeFileSync(join(cwd, 'package.json'), JSON.stringify({ name: 'ohos-port-consumer-test', version: '1.0.0', private: true }));
-  const target = tarball ? resolve(tarball) : `${packageName}@${packageVersion}`;
-  exec(npm, ['install', '--no-audit', '--no-fund', target]);
+  mkdirSync(fixture);
+  const fixtureDependencies = { [consumerName]: upstreamVersion };
+  const helperDependencies = Object.fromEntries(testDependencies.map((spec) => {
+    const at = spec.startsWith('@') ? spec.indexOf('@', spec.indexOf('/') + 1) : spec.indexOf('@');
+    if (at < 1) throw new Error(`Test dependency must be pinned: ${spec}`);
+    return [spec.slice(0, at), spec.slice(at + 1)];
+  }));
+  writeFileSync(join(cwd, 'package.json'), JSON.stringify({
+    name: 'ohos-port-override-test',
+    version: '1.0.0',
+    private: true,
+    dependencies: { 'port-test-consumer': 'file:./fixture', ...helperDependencies },
+    overrides: { [consumerName]: tarball ? `file:${resolve(tarball)}` : `npm:${packageName}@${packageVersion}` },
+  }));
+  writeFileSync(join(fixture, 'package.json'), JSON.stringify({
+    name: 'port-test-consumer',
+    version: '1.0.0',
+    private: true,
+    dependencies: fixtureDependencies,
+  }));
+  exec(npm, ['install', '--no-audit', '--no-fund']);
   if (process.platform === 'openharmony') {
     exec(npm, ['install', '--no-save', '--no-audit', '--no-fund', 'ohos-signpost']);
     exec(npm, ['exec', '--yes', '--', 'ohos-signpost']);
   }
   copyFileSync(resolve(testFile), join(cwd, 'test.js'));
-  exec(process.execPath, ['test.js']);
+  if (runtime === 'bun') {
+    const bun = join(cwd, 'node_modules', '.bin', process.platform === 'win32' ? 'bun.cmd' : 'bun');
+    exec(bun, ['test.js']);
+  } else {
+    exec(process.execPath, ['test.js']);
+  }
 } finally {
   rmSync(cwd, { recursive: true, force: true });
 }

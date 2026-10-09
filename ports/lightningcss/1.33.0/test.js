@@ -1,5 +1,6 @@
+// @test-package: lightningcss
 const assert = require('node:assert/strict');
-const { transform } = require('@ohos-npm-ports/lightningcss');
+const { transform } = require('lightningcss');
 
 const result = transform({
   filename: 'probe.css',

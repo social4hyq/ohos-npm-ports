@@ -1,5 +1,6 @@
+// @test-package: sqlite3
 const assert = require('node:assert/strict');
-const sqlite3 = require('@ohos-npm-ports/sqlite3');
+const sqlite3 = require('sqlite3');
 
 assert.equal(typeof sqlite3.Database, 'function');
 const db = new sqlite3.Database(':memory:');
