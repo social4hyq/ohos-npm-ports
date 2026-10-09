@@ -1,0 +1,4 @@
+// @test-package: turbo
+const assert=require('node:assert/strict'),fs=require('node:fs'),{spawnSync}=require('node:child_process'),{join}=require('node:path');const dir=join(process.cwd(),'turbo-smoke');fs.mkdirSync(join(dir,'apps','app'),{recursive:true});
+fs.writeFileSync(join(dir,'package.json'),JSON.stringify({name:'turbo-smoke',private:true,packageManager:'npm@10.0.0',workspaces:['apps/*']}));fs.writeFileSync(join(dir,'turbo.json'),JSON.stringify({tasks:{build:{outputs:['dist/**']}}}));fs.writeFileSync(join(dir,'apps','app','package.json'),JSON.stringify({name:'app',version:'1.0.0',scripts:{build:'node -e "console.log(\'TURBO_PORT_SMOKE_OK\')"'}}));
+const bin=join(process.cwd(),'node_modules','.bin',process.platform==='win32'?'turbo.cmd':'turbo'),r=spawnSync(bin,['run','build','--cache-dir','.turbo/cache'],{cwd:dir,encoding:'utf8',shell:process.platform==='win32'});assert.equal(r.status,0,r.stderr||r.stdout);assert.match(r.stdout,/TURBO_PORT_SMOKE_OK/);

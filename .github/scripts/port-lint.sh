@@ -98,6 +98,18 @@ lint_one() {
     echo "⚠️  build.sh has no visible self-verification (grep -q / node -e / readelf); see docs/zh-CN/contributor/verification.md"
   fi
 
+  # --- BLOCKING: every port version has a package-specific consumer test ---
+  if [ ! -f "$dir/test.js" ]; then
+    echo "❌ missing package-specific test.js; see docs/zh-CN/contributor/port-multi-os-tests.md"
+    ok=0
+  elif ! node --check "$dir/test.js"; then
+    echo "❌ test.js does not parse under Node.js"
+    ok=0
+  elif grep -q '^// @test-platforms:' "$dir/test.js" && ! grep -q '^// @test-platform-reason:' "$dir/test.js"; then
+    echo "❌ platform-restricted test.js must explain N/A with @test-platform-reason"
+    ok=0
+  fi
+
   if [ "$ok" = 1 ]; then
     echo "✅ shape checks passed"
     echo "| \`$dir\` | ✅ | |" >> "$SUMMARY"

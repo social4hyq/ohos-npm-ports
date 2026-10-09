@@ -1,0 +1,84 @@
+name: Port package multi-OS tests
+
+on:
+  pull_request:
+    paths:
+      - 'ports/**'
+      - '.github/scripts/run-port-test.mjs'
+      - '.github/scripts/port-test-matrix.mjs'
+      - '.github/workflows/port-multi-os-tests.yml'
+  schedule:
+    - cron: '0 5 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  discover:
+    runs-on: ubuntu-24.04
+    outputs:
+      openharmony: ${{ steps.set.outputs.openharmony }}
+      linuxWindows: ${{ steps.set.outputs.linuxWindows }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - id: set
+        run: |
+          matrix=$(node .github/scripts/port-test-matrix.mjs)
+          echo "openharmony=$(node -e 'console.log(JSON.stringify({include:JSON.parse(process.argv[1]).openharmony}))' "$matrix")" >> "$GITHUB_OUTPUT"
+          echo "linuxWindows=$(node -e 'console.log(JSON.stringify({include:JSON.parse(process.argv[1]).linuxWindows}))' "$matrix")" >> "$GITHUB_OUTPUT"
+
+  openharmony:
+    needs: discover
+    name: OHOS ${{ matrix.packageName }}@${{ matrix.packageVersion }}
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.discover.outputs.openharmony) }}
+    container:
+      image: ghcr.io/ohos-npm-ports/ci-runner:latest
+      volumes:
+        - /tmp/node24:/__e/node24:rw,rshared
+    steps:
+      - name: Setup node for actions
+        run: |
+          curl -fLO https://github.com/hqzing/ohos-node/releases/download/v24.2.0/node-v24.2.0-openharmony-arm64.tar.gz
+          mkdir /__e/node24/bin
+          tar -zxf node-v24.2.0-openharmony-arm64.tar.gz
+          cp node-v24.2.0-openharmony-arm64/bin/node /__e/node24/bin/node
+          rm -rf node-v24.2.0-openharmony-arm64*
+      - uses: actions/checkout@v5
+      - name: Execute package test.js
+        env:
+          PACKAGE_NAME: ${{ matrix.packageName }}
+          PACKAGE_VERSION: ${{ matrix.packageVersion }}
+          TEST_FILE: ${{ matrix.testFile }}
+        run: node .github/scripts/run-port-test.mjs
+
+  linux-windows:
+    needs: discover
+    name: ${{ matrix.os }} ${{ matrix.packageName }}@${{ matrix.packageVersion }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.discover.outputs.linuxWindows) }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: oven-sh/setup-bun@v2
+        if: matrix.testRuntime == 'bun'
+        with:
+          bun-version: 1.4.2
+      - name: Execute package test.js
+        env:
+          PACKAGE_NAME: ${{ matrix.packageName }}
+          PACKAGE_VERSION: ${{ matrix.packageVersion }}
+          TEST_FILE: ${{ matrix.testFile }}
+        run: node .github/scripts/run-port-test.mjs

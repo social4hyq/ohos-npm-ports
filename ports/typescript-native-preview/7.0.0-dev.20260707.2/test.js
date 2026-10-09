@@ -1,0 +1,3 @@
+// @test-package: @typescript/native-preview
+const assert=require('node:assert/strict'),fs=require('node:fs'),{spawnSync}=require('node:child_process'),{join}=require('node:path');fs.writeFileSync('good.ts','const answer: number = 42;\n');fs.writeFileSync('bad.ts','const answer: number = "wrong";\n');
+const bin=join('node_modules','.bin',process.platform==='win32'?'tsgo.cmd':'tsgo'),good=spawnSync(bin,['--noEmit','good.ts'],{encoding:'utf8',shell:process.platform==='win32'});assert.equal(good.status,0,good.stderr||good.stdout);const bad=spawnSync(bin,['--noEmit','bad.ts'],{encoding:'utf8',shell:process.platform==='win32'});assert.notEqual(bad.status,0);assert.match(String(bad.stdout)+'\n'+String(bad.stderr),/error TS2322/);

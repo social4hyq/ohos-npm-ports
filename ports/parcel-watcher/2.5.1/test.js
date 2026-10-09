@@ -1,0 +1,3 @@
+// @test-package: @parcel/watcher
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os'),watcher=require('@parcel/watcher');
+(async()=>{const dir=fs.mkdtempSync(path.join(os.tmpdir(),'parcel-port-'));try{const snap=path.join(dir,'snapshot');await watcher.writeSnapshot(dir,snap);fs.writeFileSync(path.join(dir,'created.txt'),'watcher smoke');const events=await watcher.getEventsSince(dir,snap);assert.ok(events.some(e=>e.path.endsWith('created.txt')),JSON.stringify(events));}finally{fs.rmSync(dir,{recursive:true,force:true});}})().catch(e=>{console.error(e);process.exitCode=1;});
