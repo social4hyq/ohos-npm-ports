@@ -1,0 +1,8 @@
+{
+  "name": "plugin-consumer",
+  "private": true,
+  "dependencies": {
+    "consumer-deps": "file:./consumer-deps-1.0.0.tgz",
+    "tailwindcss": "4.3.3"
+  }
+}

@@ -11,7 +11,7 @@
 +    arch: "arm64",
 +    bin: "oven-bun-openharmony-arm64",
 +    scope: "@ohos-npm-ports",
-+    version: "1.4.2-1",
++    version: "1.4.2-2",
 +    exe: "bin/bun"
 +  },
 +  {

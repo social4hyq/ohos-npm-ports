@@ -2,7 +2,7 @@
 set -e
 
 # ============================================================
-# ohos-npm-ports: @ohos-npm-ports/prisma-engines 5.1.1-3
+# ohos-npm-ports: @ohos-npm-ports/prisma-engines 5.1.1-4
 #
 # 构建方式：
 #   1. 官方 rust dist + prisma-engines 源码（prisma@5.1.1 pin 的 commit），
@@ -19,7 +19,7 @@ set -e
 
 PKG_NAME="prisma-engines"
 PKG_VERSION="5.1.1"
-PORTS_VERSION="5.1.1-3"
+PORTS_VERSION="5.1.1-4"
 COMMIT="6a3747c37ff169c90047725a05a6ef02e32ac97e"
 WORK_DIR="$(pwd)"
 BUILD_DIR="${WORK_DIR}/build"
@@ -42,6 +42,8 @@ do_fetch() {
     RUST_VER="1.98.0"
     rm -rf "${BUILD_DIR}"
     mkdir -p "${BUILD_DIR}"
+    $CURL "https://registry.npmjs.org/@prisma/engines/-/engines-${PKG_VERSION}.tgz" -o "${BUILD_DIR}/upstream.tgz"
+    echo "067570e8e81ba674a05276b4325082a1daff108ba0b35d1f8d002fc05c1249ef  ${BUILD_DIR}/upstream.tgz" | sha256sum -c -
     cd "${BUILD_DIR}"
     $CURL "https://static.rust-lang.org/dist/${RUST_DIST}/rust-${RUST_VER}-aarch64-unknown-linux-ohos.tar.gz" -o rust-dist.tar.gz
     echo "db1b3c28a89a71594e9366b952ea5b34f7f9c66c853db7c3c637e59906cfcbc0  rust-dist.tar.gz" | sha256sum -c -
@@ -125,33 +127,44 @@ do_package() {
     echo "=== package: 组装发布目录 + 签名 + 别名 ==="
     rm -rf "${BUILD_DIR}/pkg"
     mkdir "${BUILD_DIR}/pkg"
-    cp "${BUILD_DIR}/src/target/release/libquery_engine.so" "${BUILD_DIR}/pkg/libquery_engine.so"
-    cp "${BUILD_DIR}/src/target/release/schema-engine" "${BUILD_DIR}/pkg/schema-engine"
-    cp "${WORK_DIR}/package.json" "${BUILD_DIR}/pkg/package.json"
+    tar -zxf "${BUILD_DIR}/upstream.tgz" -C "${BUILD_DIR}/pkg" --strip-components=1
+    mkdir "${BUILD_DIR}/pkg/openharmony-arm64"
+    cp "${BUILD_DIR}/src/target/release/libquery_engine.so" "${BUILD_DIR}/pkg/openharmony-arm64/libquery_engine.so"
+    cp "${BUILD_DIR}/src/target/release/schema-engine" "${BUILD_DIR}/pkg/openharmony-arm64/schema-engine"
+    node -e '
+      const fs=require("fs");
+      const file=process.argv[1], port=JSON.parse(fs.readFileSync(process.argv[2]));
+      const pkg=JSON.parse(fs.readFileSync(file));
+      for(const key of ["name","version","main","repository"])pkg[key]=port[key];
+      pkg.scripts.postinstall="node install.cjs";
+      pkg.files=[...new Set([...(pkg.files ?? []),...port.files])];
+      fs.writeFileSync(file,JSON.stringify(pkg,null,2)+"\n");
+    ' "${BUILD_DIR}/pkg/package.json" "${WORK_DIR}/package.json"
+    cp "${WORK_DIR}/install.cjs" "${BUILD_DIR}/pkg/install.cjs"
     cp "${WORK_DIR}/index.js" "${BUILD_DIR}/pkg/index.js"
 
     # The OHOS-patched LLD stamps a placeholder .codesign at link time which
     # binary-sign-tool refuses to overwrite -- strip first (ports/turbo does
     # the same).
-    llvm-strip --strip-all "${BUILD_DIR}/pkg/libquery_engine.so"
-    llvm-strip --strip-all "${BUILD_DIR}/pkg/schema-engine"
-    binary-sign-tool sign -selfSign 1 -inFile "${BUILD_DIR}/pkg/libquery_engine.so" -outFile "${BUILD_DIR}/pkg/libquery_engine.so.signed"
-    mv "${BUILD_DIR}/pkg/libquery_engine.so.signed" "${BUILD_DIR}/pkg/libquery_engine.so"
-    binary-sign-tool sign -selfSign 1 -inFile "${BUILD_DIR}/pkg/schema-engine" -outFile "${BUILD_DIR}/pkg/schema-engine.signed"
-    mv "${BUILD_DIR}/pkg/schema-engine.signed" "${BUILD_DIR}/pkg/schema-engine"
-    chmod +x "${BUILD_DIR}/pkg/schema-engine"
-    readelf -S "${BUILD_DIR}/pkg/libquery_engine.so" | grep -q '\.codesign'
-    readelf -S "${BUILD_DIR}/pkg/schema-engine" | grep -q '\.codesign'
+    llvm-strip --strip-all "${BUILD_DIR}/pkg/openharmony-arm64/libquery_engine.so"
+    llvm-strip --strip-all "${BUILD_DIR}/pkg/openharmony-arm64/schema-engine"
+    binary-sign-tool sign -selfSign 1 -inFile "${BUILD_DIR}/pkg/openharmony-arm64/libquery_engine.so" -outFile "${BUILD_DIR}/pkg/openharmony-arm64/libquery_engine.so.signed"
+    mv "${BUILD_DIR}/pkg/openharmony-arm64/libquery_engine.so.signed" "${BUILD_DIR}/pkg/openharmony-arm64/libquery_engine.so"
+    binary-sign-tool sign -selfSign 1 -inFile "${BUILD_DIR}/pkg/openharmony-arm64/schema-engine" -outFile "${BUILD_DIR}/pkg/openharmony-arm64/schema-engine.signed"
+    mv "${BUILD_DIR}/pkg/openharmony-arm64/schema-engine.signed" "${BUILD_DIR}/pkg/openharmony-arm64/schema-engine"
+    chmod +x "${BUILD_DIR}/pkg/openharmony-arm64/schema-engine"
+    readelf -S "${BUILD_DIR}/pkg/openharmony-arm64/libquery_engine.so" | grep -q '\.codesign'
+    readelf -S "${BUILD_DIR}/pkg/openharmony-arm64/schema-engine" | grep -q '\.codesign'
 
     # Alias names matching get-platform's binaryTarget fallback ("debian-openssl-
     # 1.1.x" on openharmony; the 3.0.x pair guards against libssl-probe drift).
     # prisma's engine lookup (resolveBinary / generate's copy) scans getEnginesPath
-    # = the package root for exactly these names, so overrides of @prisma/engines
+    # = the OHOS directory for exactly these names, so overrides of @prisma/engines
     # work without env vars. Real copies, not symlinks: npm pack silently drops
     # symlink entries, and node's require() resolves the symlink before picking
     # the loader, so a symlinked ".so.node" would be parsed as JS instead of
     # dlopened.
-    cd "${BUILD_DIR}/pkg"
+    cd "${BUILD_DIR}/pkg/openharmony-arm64"
     cp libquery_engine.so libquery_engine-debian-openssl-1.1.x.so.node
     cp schema-engine schema-engine-debian-openssl-1.1.x
     cp libquery_engine.so libquery_engine-debian-openssl-3.0.x.so.node
@@ -163,6 +176,15 @@ do_package() {
 
 # ===== test =====
 do_test() {
+    node -e '
+      const fs=require("fs"),vm=require("vm"),assert=require("assert/strict");
+      const source=fs.readFileSync(process.argv[1],"utf8");
+      for(const platform of ["win32","linux","darwin"]){
+        const upstream={},module={exports:{}};
+        vm.runInNewContext(source,{process:{platform},module,require:(name)=>{assert.equal(name,"./dist/index.js");return upstream;}});
+        assert.equal(module.exports,upstream);
+      }
+    ' "${BUILD_DIR}/pkg/index.js"
     # @prisma/engines compatibility surface (for the overrides route): the prisma
     # CLI accesses exactly these 4 symbols plus the default constant, and matches
     # the upstream values (@prisma/engines-version exports the bare commit;
