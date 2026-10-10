@@ -117,6 +117,7 @@ do_build() {
     export npm_config_manage_package_manager_versions=false
 
     # rustup 状态留在 port 目录内: CI 以临时用户跑, 不该写 $HOME
+    export RUSTUP_DIST_SERVER="https://static.rust-lang.org"
     export RUSTUP_HOME="${STAGE}/rustup-home"
     export CARGO_HOME="${STAGE}/cargo-home"
     rustup toolchain install "${RUST_TOOLCHAIN}" --profile minimal --component rust-src

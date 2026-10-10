@@ -6,7 +6,7 @@
 +  "name": "@ohos-npm-ports/bun",
    "description": "Bun is a fast all-in-one JavaScript runtime.",
 -  "version": "1.4.2",
-+  "version": "1.4.2-1",
++  "version": "1.4.2-2",
    "scripts": {
      "postinstall": "node install.js"
    },
@@ -16,7 +16,7 @@
      "@oven/bun-windows-x64": "1.4.2",
 -    "@oven/bun-windows-aarch64": "1.4.2"
 +    "@oven/bun-windows-aarch64": "1.4.2",
-+    "@ohos-npm-ports/oven-bun-openharmony-arm64": "1.4.2-1"
++    "@ohos-npm-ports/oven-bun-openharmony-arm64": "1.4.2-2"
    },
    "bin": {
      "bun": "bin/bun.exe",

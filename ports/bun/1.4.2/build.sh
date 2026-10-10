@@ -2,7 +2,7 @@
 set -e
 
 # ============================================================
-# ohos-npm-ports: @ohos-npm-ports/bun 1.4.2-1
+# ohos-npm-ports: @ohos-npm-ports/bun 1.4.2-2
 #
 # 构建方式（对应 Harmonybrew 官方 core 的 Formula/b/bun.rb）：
 #   1. 拉取 bun-v1.4.2 源码，核对 commit；拉取固定 commit 的官方 core，
@@ -15,7 +15,7 @@ set -e
 
 PKG_NAME="bun"
 PKG_VERSION="1.4.2"
-PORTS_VERSION="1.4.2-1"
+PORTS_VERSION="1.4.2-2"
 SLOT_NAME="oven-bun-openharmony-arm64"
 WORK_DIR="$(pwd)"
 BUILD_DIR="${WORK_DIR}/build"
@@ -68,7 +68,7 @@ do_deps() {
     # llvm@21 与镜像预装的 ohos-sdk 都提供 clang，brew 拒绝同时 link
     brew unlink ohos-sdk
     # 不装 gcc：它与镜像里 devel-base 带来的 llvm-gcc-compat 互斥；bun 用官方 core 的当引导
-    brew install -y llvm@21 lld@21 ohos-selfsign cmake ninja gperf icu4c@78 ruby bun
+    brew install -y --overwrite llvm@21 lld@21 ohos-selfsign cmake ninja gperf icu4c@78 ruby bun
     llvm_prefix="$(brew --prefix llvm@21)"
     lld_prefix="$(brew --prefix lld@21)"
     export PATH="${llvm_prefix}/bin:${lld_prefix}/bin:${PATH}"
@@ -97,6 +97,7 @@ do_deps() {
     export LIBRARY_PATH="${icu_prefix}/lib${LIBRARY_PATH:+:${LIBRARY_PATH}}"
     # 镜像里 rustup 默认走阿里云镜像站，那里没有 bun 钉死的历史 nightly
     export RUSTUP_DIST_SERVER="https://static.rust-lang.org"
+    export RUSTC_BOOTSTRAP=1
 }
 
 do_fetch() {
@@ -187,6 +188,8 @@ do_build() {
     # 它报告 openharmony，scripts/utils.mjs 的 parseOs 不认
     (cd "${SRC}" && git apply "${WORK_DIR}/patchs/0003-openharmony-host-os.patch")
     grep -qF 'linux|android|openharmony' "${SRC}/scripts/utils.mjs"
+    (cd "${SRC}" && git apply "${WORK_DIR}/patchs/0004-ohos-prebuilt-rust-std.patch")
+    grep -qF 'cfg.release && cfg.abi !== "ohos"' "${SRC}/scripts/build/rust.ts"
 
     # 上游只放行它支持的微架构，OHOS 上换成 brew superenv 在 arm64 上用的值；
     # ICU 改静态链接，运行时不依赖 libicu*
@@ -346,7 +349,7 @@ do_test() {
         const eq = (got, want, what) => {
             if (JSON.stringify(got) !== JSON.stringify(want)) throw new Error(what + ": " + JSON.stringify(got));
         };
-        eq(names("openharmony", "arm64", undefined), ["@ohos-npm-ports/oven-bun-openharmony-arm64@1.4.2-1"], "openharmony");
+        eq(names("openharmony", "arm64", undefined), ["@ohos-npm-ports/oven-bun-openharmony-arm64@1.4.2-2"], "openharmony");
         eq(names("linux", "arm64", "musl"), ["@oven/bun-linux-aarch64-musl@1.4.2", "@oven/bun-linux-aarch64@1.4.2"], "linux musl");
         eq(names("linux", "arm64", undefined), ["@oven/bun-linux-aarch64@1.4.2"], "linux glibc");
         eq(names("darwin", "arm64", undefined), ["@oven/bun-darwin-aarch64@1.4.2"], "darwin");

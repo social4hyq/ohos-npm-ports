@@ -1,0 +1,12 @@
+--- a/scripts/build/rust.ts
++++ b/scripts/build/rust.ts
+@@ -333,7 +333,8 @@
+     profile.name,
+     "--locked",
+   ];
+-  if (tier3 || cfg.release || cfg.asan) {
++  // The OHOS SDK provides std; release builds do not need rust-src.
++  if (tier3 || (cfg.release && cfg.abi !== "ohos") || cfg.asan) {
+     // Rebuild std from source (cargoBuildStdArg) because:
+     // tier3:   no prebuilt `rust-std` exists.
+     // release: prebuilt std is native code built for generic x86-64 with no
