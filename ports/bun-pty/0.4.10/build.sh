@@ -99,9 +99,7 @@ readelf -S rust-pty/target/release/librust_pty_arm64_ohos.so | grep -q '\.codesi
 #    container already has it.
 mkdir -p /system/lib
 ln -sf /lib/ld-musl-aarch64.so.1 /system/lib/ld-musl-aarch64.so.1
-brew tap social4hyq/core https://github.com/social4hyq/homebrew-core.git
-brew trust social4hyq/core
-brew install -y social4hyq/core/bun
+brew install -y bun
 bun --version
 
 # Real functional smoke test: this container IS the target platform, so
