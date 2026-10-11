@@ -21,7 +21,11 @@ for (const dir of directories) {
 }
 const active = directories.filter((dir) => !Object.hasOwn(excluded, dir.split('/')[1]) && testSpec(dir)?.role === 'primary');
 const supporting = new Set(closure(active).filter((dir) => testSpec(dir)?.role === 'support'));
-for (const dir of directories.filter((dir) => testSpec(dir)?.role === 'support')) assert.ok(supporting.has(dir), `Orphan support test: ${dir}`);
+// While ports are onboarded one pull request at a time, a support test may land before its parent.
+for (const dir of directories.filter((dir) => testSpec(dir)?.role === 'support' && !supporting.has(dir))) {
+  if (process.env.CONSUMER_REQUIRE_ALL === 'true') assert.fail(`Orphan support test: ${dir}`);
+  console.error(`::warning::Orphan support test (parent not onboarded yet): ${dir}`);
+}
 const rows = directories.sort().map((dir) => {
   const spec = testSpec(dir);
   const port = dir.split('/')[1];

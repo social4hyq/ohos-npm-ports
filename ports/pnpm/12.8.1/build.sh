@@ -2,7 +2,7 @@
 set -e
 
 # ============================================================
-# ohos-npm-ports: @ohos-npm-ports/pnpm 12.8.1-2
+# ohos-npm-ports: @ohos-npm-ports/pnpm 12.8.1-3
 #
 # 构建方式：
 #   1. 下载 pnpm v12.8.1 源码 tag + pnpm@12.8.1 npm 包
@@ -15,7 +15,7 @@ set -e
 
 PKG_NAME="pnpm"
 PKG_VERSION="12.8.1"
-PORTS_VERSION="12.8.1-2"
+PORTS_VERSION="12.8.1-3"
 SLOT_NAME="pnpm-exe.openharmony-arm64"
 WORK_DIR="$(pwd)"
 BUILD_DIR="${WORK_DIR}/build"
@@ -140,6 +140,7 @@ EOF
     mv "${BUILD_DIR}/wrapper/package" "${MAIN_DIR}"
     (cd "${MAIN_DIR}" && patch -p1 < "${WORK_DIR}/patchs/0005-update-package-json.patch")
     (cd "${MAIN_DIR}" && patch -p1 < "${WORK_DIR}/patchs/0006-native-binary-openharmony.patch")
+    (cd "${MAIN_DIR}" && patch -p1 < "${WORK_DIR}/patchs/0008-alias-modules-directory.patch")
     grep -q '@ohos-npm-ports/pnpm' "${MAIN_DIR}/package.json"
     grep -qF '@ohos-npm-ports/pnpm-exe.openharmony-arm64/pnpm' "${MAIN_DIR}/native-binary.mjs"
 
