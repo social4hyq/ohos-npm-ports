@@ -1,0 +1,25 @@
+--- a/native-binary.mjs
++++ b/native-binary.mjs
+@@ -152,12 +152,16 @@
+  * @returns {string[]}
+  */
+ function installedModulesDirs () {
+-  const { name } = readWrapperManifest()
+-  const segments = typeof name === 'string' ? name.split('/').length : 1
+-  return [
+-    path.join(wrapperDir, 'node_modules'),
+-    path.resolve(wrapperDir, ...Array(segments).fill('..')),
+-  ]
++  const directories = [path.join(wrapperDir, 'node_modules')]
++  let directory = path.dirname(wrapperDir)
++  while (path.dirname(directory) !== directory) {
++    if (path.basename(directory) === 'node_modules') {
++      directories.push(directory)
++      break
++    }
++    directory = path.dirname(directory)
++  }
++  return directories
+ }
+ 
+ // A successful read with no optionalDependencies is the dev checkout (there is
