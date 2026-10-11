@@ -304,5 +304,7 @@ try {
     registryStream.end();
     await closed;
   }
-  rmSync(temporary, { recursive: true, force: true });
+  // Windows can keep native files (e.g. engines) locked briefly; cleanup must not fail a passed run.
+  try { rmSync(temporary, { recursive: true, force: true, maxRetries: 10, retryDelay: 500 }); }
+  catch (error) { console.warn(`::warning::Could not remove ${temporary}: ${error.message}`); }
 }
