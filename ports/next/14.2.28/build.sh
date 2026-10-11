@@ -2,7 +2,7 @@
 set -e
 
 VERSION=14.2.28
-PORT_VERSION=14.2.28-1
+PORT_VERSION=14.2.28-2
 PKG=next
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 REPO_ROOT=$(CDPATH= cd -- "$ROOT/../../.." && pwd)
@@ -206,6 +206,9 @@ do_test() {
     const sub = require("./next-swc-openharmony-arm64/package.json");
     if (main.name !== "@ohos-npm-ports/next" || main.version !== sub.version) process.exit(1);
     if (main.optionalDependencies[sub.name] !== sub.version) process.exit(1);
+    if (Object.hasOwn(main.scripts ?? {}, "prepublishOnly")) {
+      throw new Error("Published Next.js package must not run the upstream monorepo build");
+    }
   '
   grep -q "openharmony-arm64" next-14.2.28/dist/build/swc/index.js
   grep -q "@ohos-npm-ports/next-swc-openharmony-arm64" next-14.2.28/dist/build/swc/index.js
