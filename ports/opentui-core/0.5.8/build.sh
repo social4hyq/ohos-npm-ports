@@ -32,8 +32,7 @@ CURL="curl -fsSL --retry 8 --retry-all-errors --connect-timeout 30 --speed-limit
 do_deps() {
   # bun：harmonybrew bottle
   if ! command -v bun >/dev/null 2>&1; then
-    brew tap social4hyq/core https://atomgit.com/social4hyq/homebrew-core.git
-    brew install -y social4hyq/core/bun
+    brew install -y bun
   fi
   bun --version
 

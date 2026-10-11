@@ -2,7 +2,7 @@
 set -e
 
 # ============================================================
-# ohos-npm-ports: @ohos-npm-ports/vite-plus 1.0.0-1
+# ohos-npm-ports: @ohos-npm-ports/vite-plus 1.0.0-2
 #
 # 构建方式：
 #   1. 下载官方 vite-plus@1.0.0 tgz 与 v1.0.0 源树（各钉 sha256），
@@ -33,7 +33,7 @@ set -e
 
 PKG_NAME="vite-plus"
 PKG_VERSION="1.0.0"
-PORTS_VERSION="1.0.0-1"
+PORTS_VERSION="1.0.0-2"
 VITE_TASK_REV="7d69d6577ecf6bd83deee32186de59918a712873"
 BINDING="binding/${PKG_NAME}.openharmony-arm64.node"
 
@@ -117,6 +117,7 @@ do_build() {
     export npm_config_manage_package_manager_versions=false
 
     # rustup 状态留在 port 目录内: CI 以临时用户跑, 不该写 $HOME
+    export RUSTUP_DIST_SERVER="https://static.rust-lang.org"
     export RUSTUP_HOME="${STAGE}/rustup-home"
     export CARGO_HOME="${STAGE}/cargo-home"
     rustup toolchain install "${RUST_TOOLCHAIN}" --profile minimal --component rust-src
@@ -176,6 +177,7 @@ do_package() {
     cp -a "${STAGE}/tgz" "${OUT}"
     cd "${OUT}"
     patch -p1 < "${WORK_DIR}/patchs/0001-update-package-json.patch"
+    patch -p1 < "${WORK_DIR}/patchs/0006-preserve-upstream-core-version.patch"
 
     binary-sign-tool sign -selfSign 1 \
         -inFile "${STAGE}/src/packages/cli/${BINDING}" \
@@ -184,7 +186,7 @@ do_package() {
     node -e '
       const p = require("./package.json");
       if (p.name !== "@ohos-npm-ports/vite-plus") { console.error("bad name: " + p.name); process.exit(1); }
-      if (p.version !== "1.0.0-1") { console.error("bad version: " + p.version); process.exit(1); }
+      if (p.version !== "1.0.0-2") { console.error("bad version: " + p.version); process.exit(1); }
       console.log("OK: manifest");
     '
 }
@@ -197,6 +199,8 @@ do_test() {
     readelf -h "${BINDING}" | grep -q 'AArch64'
     readelf -S "${BINDING}" | grep -q '\.codesign'
     test ! -x "${BINDING}"
+    grep -q 'const expectedVersion = "1.0.0";' dist/bin.js
+    grep -q 'checkCoreVersion(corePackageJsonPath, expectedVersion)' dist/bin.js
 
     # loader 的第一个候选必须就是上面这个文件, 否则 openharmony 上取不到
     grep -q "process.platform === 'openharmony'" binding/index.cjs
