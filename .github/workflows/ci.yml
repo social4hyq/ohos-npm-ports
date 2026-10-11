@@ -37,7 +37,9 @@ permissions:
   actions: read
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  # Only pull_request runs share a group (superseded runs are cancelled). Push and manual runs get a
+  # unique group: sharing one would let a burst of merges cancel each other's queued main runs.
+  group: ${{ github.event_name == 'pull_request' && format('ci-pr-{0}', github.event.pull_request.number) || format('ci-run-{0}', github.run_id) }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:

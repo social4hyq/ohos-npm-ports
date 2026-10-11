@@ -87,3 +87,11 @@ test('every OS has its own consumer job below the matrix limit', () => {
   assert.doesNotMatch(workflow, /^\s+target:$/m);
   for (const target of ['win32-x64', 'linux-arm64', 'linux-x64', 'darwin-arm64', 'openharmony-arm64']) assert.ok(workflow.includes(`, ${target})`), target);
 });
+
+test('only pull_request runs share a concurrency group', () => {
+  const workflow = readFileSync('.github/workflows/ci.yml', 'utf8');
+  const block = workflow.slice(workflow.indexOf('\nconcurrency:'), workflow.indexOf('\njobs:'));
+  assert.match(block, /github\.run_id/);
+  assert.match(block, /cancel-in-progress: \$\{\{ github\.event_name == 'pull_request' \}\}/);
+  assert.doesNotMatch(block, /github\.ref\b/);
+});
