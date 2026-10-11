@@ -34,10 +34,11 @@ VIPS_VERSION=8.18.6
 #   devices won't have this build's absolute paths, only the Harmonybrew
 #   prefix and $ORIGIN-relative siblings).
 # The rest is libvips's own build + runtime dependency chain.
-brew install -y node patchelf \
-  jpeg-turbo libpng webp libtiff giflib glib little-cms2 highway cgif \
-  meson pkgconf exiv2 libarchive libheif libde265 libspng librsvg cairo \
-  pango freetype fontconfig libimagequant openjpeg aom dav1d orc gettext
+for dependency in openssl@4 node patchelf jpeg-turbo libpng webp libtiff giflib glib little-cms2 highway cgif meson pkgconf exiv2 libarchive libheif libde265 libspng librsvg cairo pango freetype fontconfig libimagequant openjpeg aom dav1d orc gettext; do
+  if ! brew list --versions "$dependency" >/dev/null 2>&1; then
+    brew install -y "$dependency"
+  fi
+done
 
 BREW_PREFIX="$(brew --prefix)"
 export PATH="${BREW_PREFIX}/bin:${PATH}"
