@@ -38,6 +38,7 @@ brew install -y llvm@22 lld@22
 LLVM_BIN="$(brew --prefix)/opt/llvm@22/bin"
 export CC="$LLVM_BIN/clang" CXX="$LLVM_BIN/clang++"
 export PATH="$LLVM_BIN:$(brew --prefix)/opt/lld@22/bin:$PATH"
+nm -D "$(command -v node)" | grep "CpuProfiler.*CollectSample"
 node-gyp rebuild --jobs=max
 
 ABI=$(node -p process.versions.modules)
