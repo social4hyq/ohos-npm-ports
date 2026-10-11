@@ -1,0 +1,13 @@
+// @test-package: typescript
+import assert from 'node:assert/strict';
+
+(async () => {
+  const tools = await import(process.env.PORT_TEST_HELPER);
+  tools.write('tsconfig.json', JSON.stringify({ compilerOptions: { strict: true, noEmit: true, types: [] }, files: ['probe.ts'] }));
+  tools.write('probe.ts', 'const answer: number = 42;');
+  tools.cli('typescript', ['--project', 'tsconfig.json'], {}, 'tsc');
+  tools.write('probe.ts', 'const answer: number = "wrong";');
+  const invalid = tools.cli('typescript', ['--project', 'tsconfig.json'], { codes: [1, 2] }, 'tsc');
+  assert.match(invalid.output, /TS2322/);
+  tools.report({ valid: true, invalid: 'TS2322' });
+})().catch((error) => { console.error(error); process.exitCode = 1; });
