@@ -5,6 +5,10 @@ import { fileURLToPath } from 'node:url';
 
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const excluded = JSON.parse(readFileSync(join(repo, '.github/fixtures/consumer/excluded-ports.json'), 'utf8'));
+export const infrastructure = JSON.parse(readFileSync(join(repo, '.github/fixtures/consumer/infrastructure.json'), 'utf8'));
+// Documentation edits inside infrastructure directories must not trigger the full matrix.
+export const isInfrastructure = (file) => !file.endsWith('.md')
+  && infrastructure.some((entry) => entry.endsWith('/') ? file.startsWith(entry) : file === entry);
 const isExcluded = (dir) => Object.hasOwn(excluded, dir.split('/')[1]);
 export function testSpec(portDir) {
   assert.match(portDir, /^ports\/[^/]+\/[^/]+$/);
@@ -79,9 +83,9 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   const changed = readFileSync(0, 'utf8').trim().split('\n').filter(Boolean);
   const dirs = [...new Set(changed.filter((file) => file.startsWith('ports/')).map((file) => file.split('/').slice(0, 3).join('/')))].filter((dir) => !isExcluded(dir));
   for (const [port, reason] of Object.entries(excluded)) console.error(`::notice::Excluded port ${port}: ${reason}`);
-  const infrastructure = changed.some((file) => /^\.github\/(workflows\/ci\.yml|scripts\/(ci-time-service-compat\.sh|setup-ci-runner\.sh|consumer-browser\.mjs|consumer-coverage\.mjs|consumer-plan(?:\.test)?\.mjs|installed-package\.mjs|run-port-consumer\.mjs|validate-local-publish\.sh)|fixtures\/consumer\/)/.test(file));
+  const infrastructureChanged = changed.some(isInfrastructure);
   const candidates = allTests();
-  const selected = infrastructure ? candidates : candidates.filter((dir) => closure([dir]).some((input) => dirs.includes(input)));
+  const selected = infrastructureChanged ? candidates : candidates.filter((dir) => closure([dir]).some((input) => dirs.includes(input)));
   if (process.env.CONSUMER_SELECTION) {
     const requested = JSON.parse(process.env.CONSUMER_SELECTION);
     assert.ok(Array.isArray(requested) && requested.length > 0, 'Consumer selection must be a nonempty JSON array');

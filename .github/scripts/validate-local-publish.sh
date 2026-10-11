@@ -48,7 +48,13 @@ if [ ! -s "$temporary/expected-packages.txt" ]; then
   exit 1
 fi
 
-npm install --prefix "$temporary/app" --no-audit --no-fund verdaccio@6
+verdaccio_version=$(node -p "JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')).verdaccio" "$(dirname "$0")/../fixtures/consumer/tool-versions.json")
+attempt=0
+until npm install --prefix "$temporary/app" --no-audit --no-fund --fetch-retries=5 "verdaccio@$verdaccio_version"; do
+  attempt=$((attempt + 1))
+  if [ "$attempt" -ge 3 ]; then echo "Verdaccio install failed" >&2; exit 1; fi
+  sleep $((attempt * 3))
+done
 cat > "$temporary/config.yaml" <<EOF
 storage: $temporary/storage
 listen: 127.0.0.1:4873

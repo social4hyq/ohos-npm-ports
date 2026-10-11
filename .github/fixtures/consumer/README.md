@@ -72,3 +72,11 @@ if (process.env.PORT_TEST_PRIMARY === 'true') {
 OpenHarmony consumer 使用 ci-runner 镜像自带的 NDK 库目录；该目录加入运行时动态库搜索路径。验证结果不证明真实设备上的系统服务行为，尤其不将 CI 库提供的时区结果作为系统服务验收。
 
 `@test-setup: true` 声明安装前准备阶段：runner 在 npm install/npm ci 前执行同一 test.js，传入 PORT_TEST_PHASE=setup；正常功能阶段传入 test。setup 不要求报告，但异常和超时仍失败。系统依赖及准备逻辑留在 port 内，不在 runner 中写包名分支。
+
+## CI 基础设施约定
+
+- `infrastructure.json` 是「改动后需全量验证」的唯一清单；`ci.yml` 的 `paths` 必须与之一致（`consumer-plan.test.mjs` 校验）。`*.md` 不触发全量。
+- `tool-versions.json` 固定 npm、Verdaccio、playwright-core 的精确版本；升级需单独提交。npm 安装带 `fetch-retries` 并对工具安装重试 3 次。
+- 每个 OS 一个独立 consumer job（`consumer-tests-<os>-<arch>`），避免单个 matrix 超过 GitHub 的 256 项上限；共用步骤在 `.github/actions/consumer-job`。
+- 失败时 runner 写 `FAIL ...` 到 step summary，并把 Verdaccio 日志、npm `_logs`、`.port-tests` 保存到 `.consumer-logs/`，由 `consumer-logs-*` artifact 上传（保留 3 天）。
+- workflow 带 `concurrency`（PR 内新推送取消旧运行，main 不取消）和最小 `permissions`。

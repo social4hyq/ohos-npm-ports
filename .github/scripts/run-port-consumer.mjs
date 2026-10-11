@@ -13,6 +13,9 @@ import { installedPackage } from './installed-package.mjs';
 
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const fixture = join(repo, '.github/fixtures/consumer');
+const versions = JSON.parse(readFileSync(join(fixture, 'tool-versions.json'), 'utf8'));
+const logDirectory = resolve(process.env.CONSUMER_LOG_DIR ?? '.consumer-logs');
+const caseDirectories = [];
 const artifactRoot = resolve(process.argv[2] ?? '.port-artifacts');
 assert.equal(process.platform, process.env.EXPECTED_PLATFORM);
 assert.equal(process.arch, process.env.EXPECTED_ARCH);
@@ -22,8 +25,33 @@ let npmCli = process.platform === 'win32'
 assert.ok(existsSync(npmCli), `Missing npm CLI: ${npmCli}`);
 const temporary = mkdtempSync(join(tmpdir(), 'ohos-port-consumer-'));
 const children = new Set();
-let environment = { ...process.env, NEXT_TELEMETRY_DISABLED: '1', npm_config_progress: 'false' };
+let environment = { ...process.env, NEXT_TELEMETRY_DISABLED: '1', npm_config_progress: 'false', npm_config_fetch_retries: '5', npm_config_fetch_retry_mintimeout: '2000' };
 const delay = (ms) => new Promise((done) => setTimeout(done, ms));
+const group = (title) => console.log(`::group::${title}`);
+const endGroup = () => console.log('::endgroup::');
+async function retry(label, action, attempts = 3) {
+  for (let attempt = 1; ; attempt++) {
+    try { return await action(); } catch (error) {
+      if (attempt >= attempts) throw error;
+      console.warn(`${label} failed (attempt ${attempt}/${attempts}): ${error.message}`);
+      await delay(attempt * 3000);
+    }
+  }
+}
+
+// Keep what is needed to diagnose a failure before the temporary tree is removed.
+function saveLogs() {
+  try {
+    mkdirSync(logDirectory, { recursive: true });
+    if (existsSync(registryLog)) cpSync(registryLog, join(logDirectory, 'verdaccio.log'));
+    const npmLogs = join(temporary, 'npm-cache/_logs');
+    if (existsSync(npmLogs)) cpSync(npmLogs, join(logDirectory, 'npm-logs'), { recursive: true });
+    for (const directory of caseDirectories) {
+      const tests = join(directory, '.port-tests');
+      if (existsSync(tests)) cpSync(tests, join(logDirectory, 'cases', relative(temporary, directory)), { recursive: true });
+    }
+  } catch (error) { console.error(`Could not save diagnostic logs: ${error.message}`); }
+}
 
 function run(args, cwd, capture = false, extraEnv = {}, timeout = 0) {
   return new Promise((done, fail) => {
@@ -161,13 +189,13 @@ try {
   const rank = new Map(orderedDirs.map((dir, index) => [dir, index]));
   built.sort((a, b) => (rank.get(a.portDir) ?? rank.size) - (rank.get(b.portDir) ?? rank.size));
   const npmRuntime = join(temporary, 'npm-runtime');
-  await npm(['install', '--prefix', npmRuntime, '--no-audit', '--no-fund', 'npm@11'], temporary);
+  await retry('npm tool install', () => npm(['install', '--prefix', npmRuntime, '--no-audit', '--no-fund', `npm@${versions.npm}`], temporary));
   npmCli = join(npmRuntime, 'node_modules/npm/bin/npm-cli.js');
   console.log(`Using npm ${String(await npm(['--version'], temporary, true)).trim()}`);
   const registry = `http://127.0.0.1:${await freePort()}`;
   const app = join(temporary, 'registry-app');
   mkdirSync(app);
-  await npm(['install', '--prefix', app, '--no-audit', '--no-fund', 'verdaccio@6'], temporary);
+  await retry('verdaccio install', () => npm(['install', '--prefix', app, '--no-audit', '--no-fund', `verdaccio@${versions.verdaccio}`], temporary));
   const config = join(temporary, 'config.yaml');
   const policy = [...new Set(built.map((pkg) => pkg.name))].map((name) =>
     `  ${JSON.stringify(name)}:\n    access: $all\n    publish: $authenticated\n`).join('');
@@ -232,6 +260,7 @@ try {
     for (const mode of modes) {
       const project = join(base, mode);
       cpSync(template, project, { recursive: true });
+      caseDirectories.push(project);
       cpSync(join(base, packed.filename), join(project, packed.filename));
       const pkg = JSON.parse(readFileSync(join(project, 'package.json')));
       if (mode === 'baseline') delete pkg.overrides;
@@ -242,11 +271,15 @@ try {
       writeFileSync(join(project, 'package.json'), JSON.stringify(pkg, null, 2));
       console.log(`Testing ${label} / ${entry.project} / ${mode}: ${process.platform}/${process.arch}`);
       console.log(`Node ${process.version}; original dependencies: ${JSON.stringify(specs.map((spec) => [spec.upstream, spec.version]))}; overrides: ${JSON.stringify(pkg.overrides ?? {})}`);
+      group(`${label} / ${mode}: setup, install and npm ci`);
       await portTests(project, testSpecs, mode, entry.portDir, 'setup');
       await npm(['install', '--include=optional', '--no-audit', '--no-fund'], project);
       await npm(['ci', '--include=optional', '--no-audit', '--no-fund'], project);
       checkInstalled(project, built, registry, mode === 'overrides', specs);
+      endGroup();
+      group(`${label} / ${mode}: port tests`);
       const reports = await portTests(project, testSpecs, mode, entry.portDir);
+      endGroup();
       results.push(Object.fromEntries(Object.entries(reports).map(([key, report]) => [key, report.result])));
     }
     if (results.length === 2) assert.deepEqual(results[0], results[1], `Override results differ from upstream: ${label}`);
@@ -256,8 +289,13 @@ try {
   console.log(result);
   if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, result);
 } catch (error) {
+  endGroup();
   console.error(error);
-  if (existsSync(registryLog)) console.error(readFileSync(registryLog, 'utf8'));
+  const failed = `FAIL ${process.env.CONSUMER_PORT ?? '?'} on ${process.platform}/${process.arch}: ${String(error?.message ?? error).split('\n')[0]}`;
+  console.log(`::error::${failed}`);
+  if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${failed}\n`);
+  if (existsSync(registryLog)) console.error(`Verdaccio log (last 200 lines; full log in the consumer-logs artifact):\n${readFileSync(registryLog, 'utf8').split('\n').slice(-200).join('\n')}`);
+  saveLogs();
   process.exitCode = 1;
 } finally {
   for (const child of [...children]) await stop(child);

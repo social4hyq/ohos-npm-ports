@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { readdirSync, existsSync, readFileSync } from 'node:fs';
 import { test } from 'node:test';
-import { closure, testSpec } from './consumer-plan.mjs';
+import { closure, infrastructure, isInfrastructure, testSpec } from './consumer-plan.mjs';
 const plan = (file) => Object.fromEntries(execFileSync(process.execPath, ['.github/scripts/consumer-plan.mjs'], { input: `${file}\n`, encoding: 'utf8' }).trim().split('\n').map((line) => [line.slice(0, line.indexOf('=')), line.slice(line.indexOf('=') + 1)]));
 test('infrastructure selects every primary and build directory', () => {
   const value = plan('.github/fixtures/consumer/test-tools.mjs');
@@ -57,4 +57,31 @@ test('temporary publishing and artifact upload apply to every build event', () =
     assert.ok(start >= 0);
     assert.doesNotMatch(workflow.slice(start, end), /if: github.event_name/);
   }
+});
+
+test('workflow path filter matches the infrastructure list', () => {
+  const workflow = readFileSync('.github/workflows/ci.yml', 'utf8');
+  const block = workflow.slice(workflow.indexOf('  pull_request:'), workflow.indexOf('\npermissions:'));
+  const paths = [...block.matchAll(/^      - "(.+)"$/gm)].map((match) => match[1]).filter((path) => path !== 'ports/**');
+  const expected = infrastructure.map((entry) => entry.endsWith('/') ? `${entry}**` : entry);
+  assert.deepEqual(new Set(paths), new Set(expected));
+  for (const entry of infrastructure) assert.ok(entry.endsWith('/') || existsSync(entry), `Missing infrastructure file: ${entry}`);
+});
+
+test('documentation edits never select the full matrix', () => {
+  assert.equal(isInfrastructure('.github/fixtures/consumer/README.md'), false);
+  assert.equal(isInfrastructure('.github/fixtures/consumer/tool-versions.json'), true);
+  assert.equal(isInfrastructure('.github/scripts/ci-time-service-compat.sh'), true);
+  assert.equal(plan('.github/fixtures/consumer/README.md')['consumer-enabled'], 'false');
+});
+
+test('consumer tool versions are exact', () => {
+  const versions = JSON.parse(readFileSync('.github/fixtures/consumer/tool-versions.json', 'utf8'));
+  for (const [name, version] of Object.entries(versions)) assert.match(version, /^\d+\.\d+\.\d+$/, name);
+});
+
+test('every OS has its own consumer job below the matrix limit', () => {
+  const workflow = readFileSync('.github/workflows/ci.yml', 'utf8');
+  assert.doesNotMatch(workflow, /^\s+target:$/m);
+  for (const target of ['win32-x64', 'linux-arm64', 'linux-x64', 'darwin-arm64', 'openharmony-arm64']) assert.ok(workflow.includes(`, ${target})`), target);
 });
