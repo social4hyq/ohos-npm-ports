@@ -80,3 +80,5 @@ node -e '
     throw new Error("unexpected transform output");
   }
 '
+
+# probe
