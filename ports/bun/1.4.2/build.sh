@@ -414,3 +414,5 @@ do_package
 do_test
 
 echo "=== done: ${BUILD_DIR}/bun-wrapper-${PKG_VERSION} + ${BUILD_DIR}/${SLOT_NAME} ==="
+
+# baseline probe
