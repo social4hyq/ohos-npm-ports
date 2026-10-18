@@ -1,0 +1,32 @@
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -415,18 +415,18 @@
+ # To use: Ensure vite-task is cloned at ../vite-task relative to vite-plus.
+ # Comment out this section before committing.
+ # =============================================================================
+-# [patch."https://github.com/voidzero-dev/vite-task.git"]
+-# fspy = { path = "../vite-task/crates/fspy" }
++[patch."https://github.com/voidzero-dev/vite-task.git"]
++fspy = { path = "../vite-task/crates/fspy" }
+ # vt = { path = "../vite-task/crates/vt" }
+-# vt_casefold = { path = "../vite-task/crates/vt_casefold" }
+-# vt_path = { path = "../vite-task/crates/vt_path" }
+-# vt_powershell = { path = "../vite-task/crates/vt_powershell" }
+-# vt_pty_terminal_test = { path = "../vite-task/crates/vt_pty_terminal_test" }
+-# vt_pty_terminal_test_client = { path = "../vite-task/crates/vt_pty_terminal_test_client" }
+-# vt_select = { path = "../vite-task/crates/vt_select" }
+-# vt_snapshot_test = { path = "../vite-task/crates/vt_snapshot_test" }
+-# vt_str = { path = "../vite-task/crates/vt_str" }
+-# vt_workspace = { path = "../vite-task/crates/vt_workspace" }
++vt_casefold = { path = "../vite-task/crates/vt_casefold" }
++vt_path = { path = "../vite-task/crates/vt_path" }
++vt_powershell = { path = "../vite-task/crates/vt_powershell" }
++vt_pty_terminal_test = { path = "../vite-task/crates/vt_pty_terminal_test" }
++vt_pty_terminal_test_client = { path = "../vite-task/crates/vt_pty_terminal_test_client" }
++vt_select = { path = "../vite-task/crates/vt_select" }
++vt_snapshot_test = { path = "../vite-task/crates/vt_snapshot_test" }
++vt_str = { path = "../vite-task/crates/vt_str" }
++vt_workspace = { path = "../vite-task/crates/vt_workspace" }
+ 
+ [profile.dev]
+ # Disabling debug info speeds up local and CI builds,

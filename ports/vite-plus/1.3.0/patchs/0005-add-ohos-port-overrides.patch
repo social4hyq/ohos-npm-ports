@@ -1,0 +1,21 @@
+--- a/pnpm-workspace.yaml
++++ b/pnpm-workspace.yaml
+@@ -139,6 +139,7 @@
+ ignoreScripts: true
+ minimumReleaseAge: 1440
+ minimumReleaseAgeExclude:
++  - '@ohos-npm-ports/*'
+   - '@babel/*'
+   - '@devframes/*'
+   - '@napi-rs/*'
+@@ -199,6 +200,10 @@
+   - '@vitejs/devtools'
+   - '@vitejs/devtools-*'
+ overrides:
++  lightningcss: npm:@ohos-npm-ports/lightningcss@1.33.0-1
++  '@ast-grep/napi@0.45.3': npm:@ohos-npm-ports/ast-grep-napi@0.45.3-1
++  oxlint-tsgolint: npm:@ohos-npm-ports/oxlint-tsgolint@7.0.2003-1
++  '@parcel/watcher': npm:@ohos-npm-ports/parcel-watcher@2.5.1-2
+   rolldown: workspace:rolldown@*
+   vite: workspace:@voidzero-dev/vite-plus-core@*
+   vite-plus: workspace:vite-plus@*
