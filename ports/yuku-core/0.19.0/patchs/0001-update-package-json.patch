@@ -1,0 +1,29 @@
+--- a/package.json
++++ b/package.json
+@@ -1,6 +1,6 @@
+ {
+-  "name": "yuku-core",
+-  "version": "0.19.0",
++  "name": "@ohos-npm-ports/yuku-core",
++  "version": "0.19.0-1",
+   "description": "Yuku's native core, the compiled code every Yuku package runs on",
+   "license": "MIT",
+   "repository": {
+@@ -7,5 +7,6 @@
+     "type": "git",
+-    "url": "https://github.com/yuku-toolchain/yuku"
++    "url": "git+https://github.com/ohos-npm-ports/ohos-npm-ports.git",
++    "directory": "ports/yuku-core/0.19.0"
+   },
+   "type": "module",
+   "main": "index.js",
+@@ -15,7 +16,8 @@
+     "index.d.ts",
+     "binding.js",
+     "browser.js",
+-    "options.js"
++    "options.js",
++    "@yuku-core/binding-openharmony-arm64"
+   ],
+   "optionalDependencies": {
+     "@yuku-core/binding-linux-x64-gnu": "0.19.0",
