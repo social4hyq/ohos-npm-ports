@@ -29,7 +29,7 @@ async function fixture(page) {
     }),
   );
   await page.goto("./");
-  await expect(page.locator(".package-row")).toHaveCount(10);
+  await expect(page.locator(".package-row")).toHaveCount(14);
 }
 test("real generated data loads at the GitHub Pages subpath without console errors", async ({
   page,
@@ -57,10 +57,9 @@ test("real generated data loads at the GitHub Pages subpath without console erro
     fullPage: true,
   });
 });
-test("search, clear, status, sorting and pagination work together", async ({ page }) => {
+test("search, clear and status filtering work without pagination", async ({ page }) => {
   await fixture(page);
-  await page.getByLabel("下一页", { exact: true }).click();
-  await expect(page.locator("#page-info")).toContainText("第 2 / 2 页");
+  await expect(page.locator("#sort, #pagination")).toHaveCount(0);
   await page.getByLabel("搜索包", { exact: true }).fill(" ORIGINAL ");
   await expect(page.locator(".package-row")).toHaveCount(1);
   await page.getByLabel("搜索包", { exact: true }).fill("no-such-package");
@@ -70,8 +69,8 @@ test("search, clear, status, sorting and pagination work together", async ({ pag
   await expect(page.locator(".package-row")).toHaveCount(1);
   await expect(page.locator(".package-name")).toHaveText("tool-12");
   await page.getByRole("button", { name: "全部包", exact: false }).click();
-  await page.locator("#sort").selectOption("updated");
-  await expect(page.locator(".package-name").first()).toHaveText("tool-13");
+  await page.getByRole("button", { name: "无 latest 标签", exact: false }).click();
+  await expect(page.locator(".package-name")).toHaveText("tool-13");
   await expect(page.getByLabel("复制 tool-13 安装命令")).toBeDisabled();
 });
 test("details, version selection and copy produce valid aliases and JSON", async ({ page }) => {
@@ -105,15 +104,15 @@ test("details, version selection and copy produce valid aliases and JSON", async
   await expect(page.getByRole("dialog")).not.toBeVisible();
   await expect(page.getByLabel("查看 tool-00 包详情")).toBeFocused();
 });
-test("untrusted npm descriptions are text, URL state restores and clipboard failure is visible", async ({
-  page,
-}) => {
+test("untrusted descriptions stay text and clipboard failure is visible", async ({ page }) => {
   await page.route("**/data.json", (route) =>
     route.fulfill({
       json: { generatedAt: "2026-01-01T00:00:00Z", packages: fixtures },
     }),
   );
-  await page.goto("./?q=original&status=active");
+  await page.goto("./");
+  await page.getByLabel("搜索包", { exact: true }).fill("original");
+  expect(new URL(page.url()).search).toBe("");
   await expect(page.locator(".package-row")).toHaveCount(1);
   await expect(page.locator(".package-description")).toContainText("<img");
   await expect(page.locator(".package-description img")).toHaveCount(0);
@@ -143,6 +142,6 @@ test("data load failure offers a working retry", async ({ page }) => {
   await expect(page.getByText("暂时无法加载包目录")).toBeVisible();
   failed = false;
   await page.getByRole("button", { name: "重新加载" }).click();
-  await expect(page.locator(".package-row")).toHaveCount(10);
+  await expect(page.locator(".package-row")).toHaveCount(14);
   await expect(page.locator("#error")).not.toBeVisible();
 });

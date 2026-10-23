@@ -1,7 +1,32 @@
+export function normalizePackage(metadata, source = {}) {
+  const version = metadata["dist-tags"]?.latest ?? null;
+  const current = metadata.versions?.[version] ?? {};
+  const deprecated = current.deprecated || null;
+  return {
+    name: metadata.name,
+    shortName: metadata.name.replace("@ohos-npm-ports/", ""),
+    upstream: source.upstream ?? null,
+    directories: source.directories ?? [],
+    description: current.description || metadata.description || "暂无包描述。",
+    version,
+    deprecated,
+    status: deprecated ? "deprecated" : version ? "active" : "untagged",
+    license: typeof current.license === "string" ? current.license : null,
+    publishedAt: metadata.time?.[version] ?? null,
+    versions: Object.keys(metadata.versions ?? {})
+      .map((v) => ({
+        version: v,
+        tags: Object.keys(metadata["dist-tags"] ?? {}).filter(
+          (t) => metadata["dist-tags"][t] === v,
+        ),
+        deprecated: metadata.versions[v].deprecated || null,
+      }))
+      .reverse(),
+  };
+}
 import { readdir, readFile, mkdir, writeFile } from "node:fs/promises";
 import { resolve, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { normalizePackage } from "../src/catalog.mjs";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const repository = resolve(root, "..");
 const scope = "@ohos-npm-ports/";

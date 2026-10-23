@@ -6,7 +6,7 @@
     "dev": "vp dev",
     "check": "vp check",
     "test": "vp test",
-    "sync-data": "node scripts/sync-data.mjs",
+    "sync-data": "node scripts/sync.mjs",
     "build": "vp build",
     "preview": "vp preview --port 4173 --strictPort --host 0.0.0.0",
     "test:e2e": "playwright test",

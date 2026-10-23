@@ -27,12 +27,11 @@ pnpm run test:e2e
 
 ## 源码
 
-- `src/App.vue`：版面、数据加载、主题与复制反馈。
-- `src/PackageCatalog.vue`：搜索、筛选、分页及包列表。
-- `src/PackageDialog.vue`：版本详情与安装配置。
-- `src/catalog.mjs`：元数据规范化、筛选和 alias/overrides 生成。
-- `scripts/sync-data.mjs`：从 `ports/` 发现候选，查询 npm 并生成数据快照。
-- `vite.config.mjs`：Vue 编译与 Vite+ 测试配置；开发服务器和打包均由 Vite+ 提供。
+- `src/App.vue`：单组件实现版面、搜索、状态筛选、详情、主题与复制。
+- `scripts/sync.mjs`：从仓库发现候选包，查询 npm 并生成数据快照。
+- `vite.config.mjs`：Vue Vapor 编译与 Vite+ 测试配置。
+
+不做排序、分页或 URL 状态同步；所有匹配包直接展示。
 
 组件全部使用 `<script setup vapor>`，入口使用 `createVaporApp`，不是普通 Vue Virtual DOM 应用。Vue 与编译器通过 lockfile 对齐并锁定 RC；升级时必须重跑浏览器验证。
 
@@ -44,7 +43,7 @@ pnpm run test:e2e
 
 版本与废弃状态来自官方 npm registry，不猜测稳定性、发布来源或设备兼容性。仅收录仓库相关且 registry 确认存在的候选包；不是整个 scope 的历史归档。无法确认上游包名时，不生成猜测的 alias。网络错误重试后终止同步，不发布不完整快照。
 
-GitHub Pages 的来源须设为 **GitHub Actions**。Website CI 执行安装、检查、测试、同步数据、构建与桌面/手机浏览器验证；PR 仅上传页面和截图，main 更新、每日定时和手动触发可部署。不修改 port 或 npm 发布流程。
+GitHub Pages 的来源须设为 **GitHub Actions**。Website CI 仅在 Linux 执行安装、检查、测试、同步数据、构建与桌面/手机浏览器验证；PR 仅上传页面和截图，main 更新、每日定时和手动触发可部署。不修改 port 或 npm 发布流程。
 
 ### 临时依赖兼容
 
