@@ -1,7 +1,5 @@
 <script setup vapor>
-import { computed, onMounted, onUnmounted, ref, watch } from "vue";
-import PackageCatalog from "./PackageCatalog.vue";
-import PackageDialog from "./PackageDialog.vue";
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 const favicon = `${import.meta.env.BASE_URL}favicon.svg`;
 const packages = ref([]);
 const loading = ref(true);
@@ -73,6 +71,50 @@ async function copy(text) {
 }
 onMounted(load);
 onUnmounted(() => clearTimeout(timer));
+
+const labels = {
+  all: "全部包",
+  active: "可用 latest",
+  deprecated: "已废弃",
+  untagged: "无 latest 标签",
+};
+const query = ref("");
+const status = ref("all");
+const filtered = computed(() => {
+  const q = query.value.trim().toLowerCase();
+  return packages.value.filter(
+    (p) =>
+      (status.value === "all" || p.status === status.value) &&
+      [p.name, p.upstream, p.description].some((s) => s?.toLowerCase().includes(q)),
+  );
+});
+function clear() {
+  query.value = "";
+  status.value = "all";
+}
+const dialog = ref(null);
+const version = ref("");
+const mode = ref("npm");
+const code = computed(
+  () => selected.value && installText(selected.value, mode.value, version.value),
+);
+const deprecated = computed(
+  () => selected.value?.versions.find((v) => v.version === version.value)?.deprecated,
+);
+async function openDetail(pkg) {
+  selected.value = pkg;
+  version.value = pkg.version || pkg.versions[0]?.version || "";
+  mode.value = "npm";
+  await nextTick();
+  dialog.value.showModal();
+}
+function installText(pkg, mode = "npm", version = pkg.version) {
+  if (!version) return null;
+  const spec = `${pkg.name}@${version}`;
+  if (mode === "npm") return `npm install ${pkg.upstream ? `${pkg.upstream}@npm:` : ""}${spec}`;
+  if (!pkg.upstream) return null;
+  return JSON.stringify({ [mode]: { [pkg.upstream]: `npm:${spec}` } }, null, 2);
+}
 </script>
 
 <template>
@@ -170,14 +212,122 @@ onUnmounted(() => clearTimeout(timer));
         >
       </p>
     </section>
-    <PackageCatalog
-      :packages="packages"
-      :loading="loading"
-      :error="error"
-      @retry="load"
-      @select="selected = $event"
-      @copy="copy"
-    />
+
+    <section class="catalog-section" id="catalog" aria-labelledby="catalog-title">
+      <div class="section-heading">
+        <div class="eyebrow">THE PACKAGE DIRECTORY</div>
+        <div class="heading-line">
+          <h2 id="catalog-title">找到你需要的工具。</h2>
+          <a href="https://www.npmjs.com/org/ohos-npm-ports">在 npm 上查看 ↗</a>
+        </div>
+      </div>
+      <div class="catalog-layout">
+        <aside class="sidebar">
+          <h3>发布状态</h3>
+          <div id="filters" class="filters" role="group" aria-label="按发布状态筛选">
+            <button
+              v-for="(label, value) in labels"
+              :key="value"
+              :data-status="value"
+              :aria-pressed="status === value"
+              @click="status = value"
+            >
+              {{ label }}
+              <span :id="'filter-' + value">{{
+                value === "all"
+                  ? packages.length
+                  : packages.filter((p) => p.status === value).length
+              }}</span>
+            </button>
+          </div>
+          <div class="sidebar-note">
+            <span class="note-icon">↗</span>
+            <h3>把适配带回上游</h3>
+            <p>上游已支持 OpenHarmony？请优先使用官方包，减少额外的维护。</p>
+            <a
+              href="https://github.com/ohos-npm-ports/ohos-npm-ports/blob/main/docs/zh-CN/contributor/porting-guide.md"
+              >了解移植原则 →</a
+            >
+          </div>
+        </aside>
+        <div class="catalog-main">
+          <div class="toolbar">
+            <label class="search"
+              ><span aria-hidden="true">⌕</span
+              ><input
+                id="search"
+                v-model="query"
+                type="search"
+                placeholder="搜索包名、上游包或描述…"
+                aria-label="搜索包"
+            /></label>
+          </div>
+          <div class="results-meta">
+            <p id="result-count" role="status">
+              {{
+                loading
+                  ? "正在加载包目录…"
+                  : error
+                    ? "目录加载失败"
+                    : `找到 ${filtered.length} 个包 / 共 ${packages.length} 个`
+              }}
+            </p>
+            <span>点击包名，查看接入方式</span>
+          </div>
+          <div class="list-head" aria-hidden="true">
+            <span>包 / PACKAGE</span><span>LATEST</span><span>操作</span>
+          </div>
+          <div id="packages" class="packages" :aria-busy="loading" :hidden="error">
+            <div v-if="loading" class="empty">正在读取 npm 数据快照…</div>
+            <div v-else-if="!filtered.length" class="empty">
+              <h3>没有找到匹配的包</h3>
+              <p>试试其他关键词，或清除筛选条件。</p>
+              <button class="button" @click="clear">清除搜索与筛选</button>
+            </div>
+            <template v-else>
+              <article v-for="pkg in filtered" :key="pkg.name" class="package-row">
+                <div class="package-main">
+                  <div class="package-icon" aria-hidden="true">
+                    {{ pkg.shortName.replace(/[^a-z]/gi, "").slice(0, 2) }}
+                  </div>
+                  <div class="package-info">
+                    <button
+                      class="package-name"
+                      :aria-label="`查看 ${pkg.shortName} 包详情`"
+                      @click="openDetail(pkg)"
+                    >
+                      {{ pkg.shortName }}
+                    </button>
+                    <p class="package-description">{{ pkg.description }}</p>
+                    <p class="upstream">{{ pkg.upstream ? `↳ ${pkg.upstream}` : pkg.name }}</p>
+                  </div>
+                </div>
+                <div class="package-version">
+                  {{ pkg.version || "—" }}<br /><span :class="['status-badge', pkg.status]"
+                    ><span class="dot"></span>{{ labels[pkg.status] }}</span
+                  >
+                </div>
+                <button
+                  class="copy-row"
+                  :aria-label="`复制 ${pkg.shortName} 安装命令`"
+                  title="复制安装命令"
+                  :disabled="!pkg.version"
+                  @click="copy(installText(pkg))"
+                >
+                  ⧉
+                </button>
+              </article>
+            </template>
+          </div>
+          <div id="error" class="error" :hidden="!error">
+            <h3>暂时无法加载包目录</h3>
+            <p>请检查网络后重试，或前往 npm 查看包信息。</p>
+            <button class="button" id="retry" @click="load">重新加载</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <section class="getting-started" aria-labelledby="start-title">
       <div>
         <span class="eyebrow">A SMALL CHANGE. A NEW PLATFORM.</span>
@@ -210,6 +360,74 @@ onUnmounted(() => clearTimeout(timer));
     ><span>为 OpenHarmony 生态贡献一块拼图。</span
     ><a href="https://github.com/ohos-npm-ports/ohos-npm-ports">源码与贡献 ↗</a>
   </footer>
-  <PackageDialog :pkg="selected" @close="selected = null" @copy="copy" />
+
+  <dialog ref="dialog" id="detail" aria-labelledby="detail-title" @close="selected = null">
+    <template v-if="selected">
+      <div class="dialog-head">
+        <span class="eyebrow">PACKAGE DETAILS</span
+        ><button
+          id="close-detail"
+          class="icon-button"
+          aria-label="关闭包详情"
+          @click="dialog.close()"
+        >
+          ×
+        </button>
+      </div>
+      <h2 id="detail-title">{{ selected.shortName }}</h2>
+      <p id="detail-description">{{ selected.description }}</p>
+      <p id="detail-warning" class="warning" :hidden="!deprecated">
+        该版本已废弃：{{ deprecated }}
+      </p>
+      <div id="detail-links" class="detail-links">
+        <a :href="`https://www.npmjs.com/package/${selected.name}`">npm 包 ↗</a
+        ><a v-if="selected.upstream" :href="`https://www.npmjs.com/package/${selected.upstream}`"
+          >上游包 ↗</a
+        ><a
+          v-if="selected.directories[0]"
+          :href="`https://github.com/ohos-npm-ports/ohos-npm-ports/tree/main/${selected.directories[0].split('/').slice(0, 2).join('/')}`"
+          >构建与补丁 ↗</a
+        ><span v-if="selected.license">{{ selected.license }}</span>
+      </div>
+      <div class="version-control">
+        <label for="version">发布版本</label
+        ><select id="version" v-model="version">
+          <option v-for="v in selected.versions" :key="v.version" :value="v.version">
+            {{ v.version }}{{ v.tags.length ? ` · ${v.tags.join(", ")}` : ""
+            }}{{ v.deprecated ? " · 已废弃" : "" }}
+          </option>
+        </select>
+      </div>
+      <div id="install-modes" class="install-modes" role="group" aria-label="接入方式">
+        <button
+          v-for="(label, value) in {
+            npm: 'npm alias',
+            dependencies: 'dependencies',
+            overrides: 'overrides',
+          }"
+          :key="value"
+          :data-mode="value"
+          :aria-pressed="mode === value"
+          @click="mode = value"
+        >
+          {{ label }}
+        </button>
+      </div>
+      <pre id="install-code" tabindex="0">{{
+        code ||
+        (mode === "npm"
+          ? "该包没有可选发布版本。"
+          : "无法从构建文件确认上游包名。请根据包文档手动配置别名，不要猜测映射。")
+      }}</pre>
+      <button id="copy-detail" class="button primary" :disabled="!code" @click="copy(code)">
+        {{ mode === "npm" ? "复制安装命令" : "复制配置" }}
+      </button>
+      <p class="dialog-note">
+        npm alias 保持原有导入名；overrides 用于间接依赖。pnpm 的 overrides 配置写入
+        pnpm-workspace.yaml，不照搬 npm 配置。
+      </p>
+    </template>
+  </dialog>
+
   <div id="toast" role="status" class="toast" :hidden="!toast">{{ toast }}</div>
 </template>

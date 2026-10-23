@@ -3,7 +3,7 @@ import { test } from "vite-plus/test";
 import { mkdtemp, mkdir, writeFile, readFile, rm, readdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { syncData, discoverSources } from "../scripts/sync-data.mjs";
+import { syncData, discoverSources } from "../scripts/sync.mjs";
 test("source discovery keeps scoped upstream names and platform packages separate", async () => {
   const root = await mkdtemp(join(tmpdir(), "catalog-sources-"));
   try {

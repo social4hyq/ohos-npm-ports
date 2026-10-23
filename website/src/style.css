@@ -500,21 +500,6 @@ body[data-theme="dark"] .terminal {
 .search input:focus-visible {
   outline: none;
 }
-.search kbd {
-  border: 1px solid var(--line);
-  border-radius: 3px;
-  padding: 0 6px;
-  color: var(--muted);
-  font-size: 10px;
-}
-.sort select {
-  border: 1px solid var(--line);
-  border-radius: 7px;
-  background: var(--surface);
-  color: var(--text);
-  font-size: 11px;
-  padding: 13px 10px;
-}
 .results-meta {
   display: flex;
   align-items: center;
@@ -666,26 +651,6 @@ body[data-theme="dark"] .terminal {
 .copy-row:hover {
   background: var(--soft);
   color: var(--text);
-}
-.pagination {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: 19px;
-  font-size: 10px;
-  color: var(--muted);
-}
-.pagination > div {
-  display: flex;
-  gap: 8px;
-}
-.pagination button {
-  width: 33px;
-  height: 31px;
-  border: 1px solid var(--line);
-  border-radius: 5px;
-  background: var(--surface);
-  font-size: 17px;
 }
 .empty {
   padding: 65px 20px;
@@ -1054,15 +1019,8 @@ dialog h2 {
     padding: 9px 10px;
     gap: 8px;
   }
-  .search kbd {
-    display: none;
-  }
   .search input {
     font-size: 12px;
-  }
-  .sort select {
-    padding: 12px 7px;
-    font-size: 10px;
   }
   .results-meta > span {
     display: none;
