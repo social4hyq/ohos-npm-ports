@@ -95,3 +95,11 @@ test('only pull_request runs share a concurrency group', () => {
   assert.match(block, /cancel-in-progress: \$\{\{ github\.event_name == 'pull_request' \}\}/);
   assert.doesNotMatch(block, /github\.ref\b/);
 });
+
+test('lightningcss changes do not select the independent Next consumer', { skip: !has('ports/lightningcss/1.32.0') || !has('ports/next/14.2.28') }, () => {
+  const value = plan('ports/lightningcss/1.32.0/build.sh');
+  assert.ok(!JSON.parse(value.matrix).includes('ports/next/14.2.28'));
+  assert.ok(!JSON.parse(value['consumer-ports']).includes('ports/next/14.2.28'));
+  assert.deepEqual(testSpec('ports/next/14.2.28').prerequisites, []);
+  assert.ok(testSpec('ports/next/14.2.28').fixture.endsWith('/.github/fixtures/consumer/projects/next-react'));
+});

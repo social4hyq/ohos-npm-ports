@@ -1,8 +1,6 @@
 // @test-package: next
 // @test-timeout: 1800
 // @test-project: next-react
-// @test-fixture: test-fixture
-// @test-prerequisite: ports/lightningcss/1.32.0
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import fs from 'node:fs';
@@ -26,9 +24,6 @@ const require = createRequire(import.meta.url);
   });
   assert.match(out.code, /answer/);
   assert.doesNotMatch(out.code, /: number/);
-  const css = (await import('lightningcss')).transform({ filename: 'test.css', code: Buffer.from('.app { color: red; }'), minify: true }).code;
-  fs.mkdirSync('public', { recursive: true });
-  fs.writeFileSync('public/port-test.css', css);
   const report = { result: { native: true, typescript: true }, assets: [] };
   if (process.env.PORT_TEST_PRIMARY === 'true') {
     await (await import(process.env.PORT_TEST_FRONTEND_HELPER)).verifyFrontend(report);
