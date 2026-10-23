@@ -37,8 +37,15 @@ if changed != allowed:
 PY
 
 grep -q "process.platform === 'openharmony'" node/index.js
-brew install -y rust
-export PATH="$(brew --prefix rust)/bin:$PATH"
+RUST_PREFIX=$(brew --prefix rust)
+if ! "$RUST_PREFIX/bin/rustc" -vV 2>/dev/null |
+    grep -q '^host: aarch64-unknown-linux-ohos$'; then
+  HOMEBREW_NO_AUTO_UPDATE=1 brew install -y rust
+fi
+export PATH="$RUST_PREFIX/bin:$PATH"
+rustc -vV
+cargo --version
+rustc -vV | grep -q '^host: aarch64-unknown-linux-ohos$'
 npm install --ignore-scripts --no-package-lock --no-audit --no-fund
 export PATH="$(pwd)/node_modules/.bin:$PATH"
 export CARGO_TARGET_DIR=/root/.cache/lightningcss-1.32.0-target
