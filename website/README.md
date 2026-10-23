@@ -1,41 +1,53 @@
 # 包目录网站
 
-参考 [ohos-ports 包查询](https://ohos-ports.github.io/ohos-ports/) 的查询场景，为 `@ohos-npm-ports` 提供独立的响应式包目录。原生 HTML/CSS/ES modules，无运行时框架、外部字体或 CDN 依赖。
+Vue Vapor + Vite+ 静态站，保留原有响应式版型、深浅主题、搜索筛选和版本详情。不引入 Router、Pinia 或 UI 组件库。
 
-## 本地运行
+## 开发与验证
 
-需要 Node.js 24 或更新版本。网站本身不依赖原生 binding。
-
-```sh
-cd website
-npm ci
-npm test
-npm run build
-node scripts/serve.mjs
-```
-
-访问 `http://localhost:4173/ohos-npm-ports/`。静态资源和数据均使用相对路径，兼容 GitHub Pages 仓库子路径。
-
-浏览器验证（支持 Playwright 浏览器的平台）：
+需要 Node.js 24。已安装全局 Vite+ 时，在 `website/` 内执行：
 
 ```sh
-npx playwright install --with-deps chromium
-npm run test:e2e
+vp install
+vp run sync-data
+vp dev
+vp check
+vp test
+vp build
+vp preview
 ```
 
-两种视口覆盖真实快照加载、主题切换、搜索、筛选、分页、排序、详情与历史版本、alias/overrides 配置、剪贴板成功/失败、恶意描述转义、网络错误与重试；截图保存在 `test-results/`，CI 上传为 artifact。
+没有全局 vp 时先安装 package.json 指定的 pnpm，执行 `pnpm install --frozen-lockfile`，之后使用同名 scripts（例如 `pnpm run dev`）。`build` 只负责 Vite 构建，首次开发与刷新数据时先运行 `sync-data`。数据写入忽略跟踪的 `public/data.json`；不提交生成物。
 
-## 数据与边界
+浏览器测试使用同一份构建结果：
 
-- 从仓库 `ports/` 的脚本、补丁和元数据中发现当前维护的 scope 包（包括平台槽位），在构建时请求官方 npm registry 的完整元数据。仅收录 registry 确认存在的候选包；不是整个 npm scope 的历史归档。
-- 版本使用真实 `dist-tags.latest`，不以 semver 大小或 `-1` 后缀猜测稳定性。详情展示全部已发布版本、标签和各版本的 deprecated 信息。
-- 上游名称从 patch 中的原始 name 或 test.js 协议读取；不能确认时不猜测 alias/overrides 映射，只提供 scoped 安装命令。
-- “可用 latest”只表示 latest 未被标记 deprecated，不表示构建 CI、跨 OS 或目标设备验收通过；没有推断发布来源或兼容性徽章。
-- Registry 404 的候选不展示；网络/HTTP 错误重试三次后让构建失败，不部署不完整数据。页面展示快照生成时间；访问者的浏览器无需直接请求 registry。
-- 不修改现有 port、发布脚本或原生包流水线，不执行 npm publish。
+```sh
+pnpm exec playwright install --with-deps chromium
+pnpm run test:e2e
+```
 
-## GitHub Pages
+## 源码
 
-维护者在仓库 Settings → Pages → Build and deployment 中选择 **GitHub Actions**。合入 main 后，`Website` 工作流构建、测试并部署 `website/dist/`；每天定时更新 npm 元数据，也支持手动触发。PR 仅构建测试和上传页面/截图 artifact，不部署、不需要发布权限；fork 验证方式相同。
+- `src/App.vue`：版面、数据加载、主题与复制反馈。
+- `src/PackageCatalog.vue`：搜索、筛选、分页及包列表。
+- `src/PackageDialog.vue`：版本详情与安装配置。
+- `src/catalog.mjs`：元数据规范化、筛选和 alias/overrides 生成。
+- `scripts/sync-data.mjs`：从 `ports/` 发现候选，查询 npm 并生成数据快照。
+- `vite.config.mjs`：Vue 编译与 Vite+ 测试配置；开发服务器和打包均由 Vite+ 提供。
 
-正式地址为 `https://ohos-npm-ports.github.io/ohos-npm-ports/`；个人 fork 地址为 `https://social4hyq.github.io/ohos-npm-ports/`，仅在对应仓库启用 Pages 且成功部署后可访问。源码及文档链接固定指向社区仓，不因 fork 预览而改写贡献入口。
+组件全部使用 `<script setup vapor>`，入口使用 `createVaporApp`，不是普通 Vue Virtual DOM 应用。Vue 与编译器通过 lockfile 对齐并锁定 RC；升级时必须重跑浏览器验证。
+
+## 鸿蒙与跨平台
+
+上游 Vite+ 尚未发布 openharmony 平台包，因此使用完整、保留其他平台产物的 `@ohos-npm-ports/vite-plus`。相关 yuku、lightningcss 和 tsgolint 通过 overrides 使用社区 port；Vite/Vitest 与工具链版本对齐。Rolldown 的原生 openharmony binding 以 optionalDependency 补充，不影响其他平台安装；`ohos-signpost` postinstall 处理本机原生模块签名。所有平台使用同一份依赖与 lockfile。
+
+## 数据与部署
+
+版本与废弃状态来自官方 npm registry，不猜测稳定性、发布来源或设备兼容性。仅收录仓库相关且 registry 确认存在的候选包；不是整个 scope 的历史归档。无法确认上游包名时，不生成猜测的 alias。网络错误重试后终止同步，不发布不完整快照。
+
+GitHub Pages 的来源须设为 **GitHub Actions**。Website CI 执行安装、检查、测试、同步数据、构建与桌面/手机浏览器验证；PR 仅上传页面和截图，main 更新、每日定时和手动触发可部署。不修改 port 或 npm 发布流程。
+
+### 临时依赖兼容
+
+`patches/vite-plus.patch` 通过 pnpm 的 patchedDependencies 应用：仅在包名为社区 port 时，从 CLI 版本中剥离移植修订号，再与 core 版本精确比较。当前 port 的 `1.0.0-1` 否则会错误地要求不存在的 core `1.0.0-1`，而非上游 core `1.0.0`。未修改 node_modules 的生成脚本，也没有自制构建器；port 修复并发布后可删除此补丁。
+
+当前移植工具链的 Vitest 开发服务依赖存在 npm audit moderate 告警。本站使用 Node 模式一次性测试，不开启 Vitest UI/Browser 服务，部署内容仅为静态文件；不要将开发/测试服务开放到公网。后续升级工具链时需同步核对社区 port 与告警修复状态。

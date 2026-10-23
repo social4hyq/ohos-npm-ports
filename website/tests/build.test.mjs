@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
-import { mkdtemp, mkdir, writeFile, readFile, rm } from "node:fs/promises";
+import { test } from "vite-plus/test";
+import { mkdtemp, mkdir, writeFile, readFile, rm, readdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { build, discoverSources } from "../scripts/build.mjs";
+import { syncData, discoverSources } from "../scripts/sync-data.mjs";
 test("source discovery keeps scoped upstream names and platform packages separate", async () => {
   const root = await mkdtemp(join(tmpdir(), "catalog-sources-"));
   try {
@@ -18,14 +18,8 @@ test("source discovery keeps scoped upstream names and platform packages separat
       "npm install @ohos-npm-ports/original-tool",
     );
     const sources = await discoverSources(root);
-    assert.equal(
-      sources.get("@ohos-npm-ports/original-tool").upstream,
-      "@original/tool",
-    );
-    assert.equal(
-      sources.get("@ohos-npm-ports/original-tool-openharmony-arm64").upstream,
-      null,
-    );
+    assert.equal(sources.get("@ohos-npm-ports/original-tool").upstream, "@original/tool");
+    assert.equal(sources.get("@ohos-npm-ports/original-tool-openharmony-arm64").upstream, null);
     assert.deepEqual(sources.get("@ohos-npm-ports/original-tool").directories, [
       "ports/original-tool/1.0.0",
       "ports/aaa-consumer/1.0.0",
@@ -34,10 +28,10 @@ test("source discovery keeps scoped upstream names and platform packages separat
     await rm(root, { recursive: true, force: true });
   }
 });
-test("offline build emits relative-path static assets and only confirmed published data", async () => {
+test("data sync emits only confirmed published metadata", async () => {
   const output = await mkdtemp(join(tmpdir(), "catalog-build-"));
   try {
-    await build({
+    await syncData({
       output,
       fetchMetadata: async (name) =>
         name.endsWith("/bufferutil")
@@ -51,16 +45,14 @@ test("offline build emits relative-path static assets and only confirmed publish
     const data = JSON.parse(await readFile(join(output, "data.json"), "utf8"));
     assert.equal(data.packages.length, 1);
     assert.equal(data.packages[0].name, "@ohos-npm-ports/bufferutil");
-    const html = await readFile(join(output, "index.html"), "utf8");
-    assert.match(html, /\.\/app.mjs/);
-    assert.match(html, /lang="zh-CN"/);
+    assert.deepEqual(await readdir(output), ["data.json"]);
   } finally {
     await rm(output, { recursive: true, force: true });
   }
 });
 test("registry failures stop deployment rather than silently dropping packages", async () => {
   await assert.rejects(
-    build({
+    syncData({
       fetchMetadata: async () => {
         throw new Error("registry unavailable");
       },

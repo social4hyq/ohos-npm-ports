@@ -11,7 +11,7 @@ export default defineConfig({
     colorScheme: "light",
   },
   webServer: {
-    command: "node scripts/serve.mjs",
+    command: "pnpm run preview",
     url: "http://localhost:4173/ohos-npm-ports/",
     reuseExistingServer: !process.env.CI,
   },

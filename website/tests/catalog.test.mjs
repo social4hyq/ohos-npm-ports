@@ -1,10 +1,6 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
-import {
-  normalizePackage,
-  filterPackages,
-  installText,
-} from "../src/catalog.mjs";
+import { test } from "vite-plus/test";
+import { normalizePackage, filterPackages, installText } from "../src/catalog.mjs";
 const manifest = {
   name: "@ohos-npm-ports/example",
   description: "<img src=x onerror=alert(1)>",
@@ -24,16 +20,10 @@ test("latest is selected by tag, not by prerelease suffix or publish order", () 
   assert.equal(p.status, "active");
   assert.equal(p.description, manifest.description);
   assert.equal(p.versions.length, 2);
-  assert.equal(
-    p.versions.find((v) => v.version === "1.0.0-2").deprecated,
-    "Use upstream",
-  );
+  assert.equal(p.versions.find((v) => v.version === "1.0.0-2").deprecated, "Use upstream");
 });
 test("missing latest is not guessed and deprecation is version-specific", () => {
-  assert.equal(
-    normalizePackage({ ...manifest, "dist-tags": {} }).version,
-    null,
-  );
+  assert.equal(normalizePackage({ ...manifest, "dist-tags": {} }).version, null);
   const p = normalizePackage({
     ...manifest,
     "dist-tags": { latest: "1.0.0-2" },
@@ -42,22 +32,13 @@ test("missing latest is not guessed and deprecation is version-specific", () => 
 });
 test("search includes upstream names and filters combine with query", () => {
   const p = normalizePackage(manifest, { upstream: "@original/example" });
-  assert.equal(
-    filterPackages([p], { query: " ORIGINAL ", status: "active" }).length,
-    1,
-  );
-  assert.equal(
-    filterPackages([p], { query: "original", status: "deprecated" }).length,
-    0,
-  );
+  assert.equal(filterPackages([p], { query: " ORIGINAL ", status: "active" }).length, 1);
+  assert.equal(filterPackages([p], { query: "original", status: "deprecated" }).length, 0);
   assert.equal(filterPackages([p], { query: "missing" }).length, 0);
 });
 test("alias preserves upstream import slot; unknown upstream uses explicit scoped install", () => {
   const p = normalizePackage(manifest, { upstream: "@original/example" });
-  assert.equal(
-    installText(p),
-    "npm install @original/example@npm:@ohos-npm-ports/example@2.0.0-1",
-  );
+  assert.equal(installText(p), "npm install @original/example@npm:@ohos-npm-ports/example@2.0.0-1");
   assert.deepEqual(JSON.parse(installText(p, "overrides")), {
     overrides: { "@original/example": "npm:@ohos-npm-ports/example@2.0.0-1" },
   });
@@ -67,8 +48,5 @@ test("alias preserves upstream import slot; unknown upstream uses explicit scope
   );
 });
 test("no install command is offered when no latest exists", () => {
-  assert.equal(
-    installText(normalizePackage({ ...manifest, "dist-tags": {} })),
-    null,
-  );
+  assert.equal(installText(normalizePackage({ ...manifest, "dist-tags": {} })), null);
 });

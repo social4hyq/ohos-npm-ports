@@ -24,31 +24,24 @@ export function normalizePackage(metadata, source = {}) {
       .reverse(),
   };
 }
-export function filterPackages(
-  packages,
-  { query = "", status = "all", sort = "name" } = {},
-) {
+export function filterPackages(packages, { query = "", status = "all", sort = "name" } = {}) {
   const q = query.trim().toLowerCase();
   return packages
     .filter(
       (p) =>
         (status === "all" || p.status === status) &&
-        [p.name, p.upstream, p.description].some((s) =>
-          s?.toLowerCase().includes(q),
-        ),
+        [p.name, p.upstream, p.description].some((s) => s?.toLowerCase().includes(q)),
     )
     .sort((a, b) =>
       sort === "updated"
-        ? (b.publishedAt || "").localeCompare(a.publishedAt || "") ||
-          a.name.localeCompare(b.name)
+        ? (b.publishedAt || "").localeCompare(a.publishedAt || "") || a.name.localeCompare(b.name)
         : a.name.localeCompare(b.name),
     );
 }
 export function installText(pkg, mode = "npm", version = pkg.version) {
   if (!version) return null;
   const spec = `${pkg.name}@${version}`;
-  if (mode === "npm")
-    return `npm install ${pkg.upstream ? `${pkg.upstream}@npm:` : ""}${spec}`;
+  if (mode === "npm") return `npm install ${pkg.upstream ? `${pkg.upstream}@npm:` : ""}${spec}`;
   if (!pkg.upstream) return null;
   return JSON.stringify({ [mode]: { [pkg.upstream]: `npm:${spec}` } }, null, 2);
 }

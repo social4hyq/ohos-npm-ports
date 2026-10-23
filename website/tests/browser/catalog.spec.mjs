@@ -41,10 +41,9 @@ test("real generated data loads at the GitHub Pages subpath without console erro
   await expect(page.locator("#total-count")).not.toHaveText("—");
   expect(errors).toEqual([]);
   expect(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth <= innerWidth,
-    ),
+    await page.evaluate(() => document.getElementById("app").__vue_app__._component.__vapor),
   ).toBe(true);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({
     path: testInfo.outputPath("catalog.png"),
     fullPage: true,
@@ -58,9 +57,7 @@ test("real generated data loads at the GitHub Pages subpath without console erro
     fullPage: true,
   });
 });
-test("search, clear, status, sorting and pagination work together", async ({
-  page,
-}) => {
+test("search, clear, status, sorting and pagination work together", async ({ page }) => {
   await fixture(page);
   await page.getByLabel("下一页", { exact: true }).click();
   await expect(page.locator("#page-info")).toContainText("第 2 / 2 页");
@@ -77,9 +74,7 @@ test("search, clear, status, sorting and pagination work together", async ({
   await expect(page.locator(".package-name").first()).toHaveText("tool-13");
   await expect(page.getByLabel("复制 tool-13 安装命令")).toBeDisabled();
 });
-test("details, version selection and copy produce valid aliases and JSON", async ({
-  page,
-}) => {
+test("details, version selection and copy produce valid aliases and JSON", async ({ page }) => {
   await fixture(page);
   await page.getByLabel("查看 tool-00 包详情").click();
   await expect(page.getByRole("dialog")).toBeVisible();
@@ -87,9 +82,9 @@ test("details, version selection and copy produce valid aliases and JSON", async
     "npm install @original/tool@npm:@ohos-npm-ports/tool-00@2.0.0-1",
   );
   await page.getByRole("button", { name: "overrides", exact: true }).click();
-  expect(JSON.parse(await page.locator("#install-code").textContent())).toEqual(
-    { overrides: { "@original/tool": "npm:@ohos-npm-ports/tool-00@2.0.0-1" } },
-  );
+  expect(JSON.parse(await page.locator("#install-code").textContent())).toEqual({
+    overrides: { "@original/tool": "npm:@ohos-npm-ports/tool-00@2.0.0-1" },
+  });
   await page.locator("#version").selectOption("1.0.0-1");
   await expect(page.locator("#detail-warning")).toContainText("Use version 2");
   await page.evaluate(() =>
@@ -103,11 +98,9 @@ test("details, version selection and copy produce valid aliases and JSON", async
     }),
   );
   await page.getByRole("button", { name: "复制配置", exact: true }).click();
-  expect(
-    JSON.parse(await page.evaluate(() => window.copied)).overrides[
-      "@original/tool"
-    ],
-  ).toMatch(/@1\.0\.0-1$/);
+  expect(JSON.parse(await page.evaluate(() => window.copied)).overrides["@original/tool"]).toMatch(
+    /@1\.0\.0-1$/,
+  );
   await page.getByLabel("关闭包详情").click();
   await expect(page.getByRole("dialog")).not.toBeVisible();
   await expect(page.getByLabel("查看 tool-00 包详情")).toBeFocused();
