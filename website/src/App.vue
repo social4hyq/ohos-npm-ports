@@ -50,6 +50,12 @@ async function load() {
     packages.value = data.packages;
     generatedAt.value = data.generatedAt;
     ready.value = true;
+    const name = new URL(location.href).searchParams.get("package");
+    if (name) {
+      const pkg = packages.value.find((p) => p.name === name || p.shortName === name);
+      if (pkg) await openDetail(pkg);
+      else toast.value = "未找到该包，请在目录中搜索其他包。";
+    }
   } catch {
     error.value = true;
   } finally {
@@ -110,12 +116,24 @@ const code = computed(
 const deprecated = computed(
   () => selected.value?.versions.find((v) => v.version === version.value)?.deprecated,
 );
+function packageUrl(pkg) {
+  const url = new URL(import.meta.env.BASE_URL, location.origin);
+  url.searchParams.set("package", pkg.name);
+  return url.href;
+}
+function closeDetail() {
+  selected.value = null;
+  const url = new URL(location.href);
+  url.searchParams.delete("package");
+  history.replaceState(null, "", url);
+}
 async function openDetail(pkg) {
   selected.value = pkg;
   version.value = pkg.version || pkg.versions[0]?.version || "";
   mode.value = "npm";
   await nextTick();
   dialog.value.showModal();
+  history.replaceState(null, "", packageUrl(pkg));
 }
 function installText(pkg, mode = "npm", version = pkg.version) {
   if (!version) return null;
@@ -370,7 +388,7 @@ function installText(pkg, mode = "npm", version = pkg.version) {
     ><a href="https://github.com/ohos-npm-ports/ohos-npm-ports">源码与贡献 ↗</a>
   </footer>
 
-  <dialog ref="dialog" id="detail" aria-labelledby="detail-title" @close="selected = null">
+  <dialog ref="dialog" id="detail" aria-labelledby="detail-title" @close="closeDetail">
     <template v-if="selected">
       <div class="dialog-head">
         <span class="eyebrow">PACKAGE DETAILS</span
@@ -431,6 +449,7 @@ function installText(pkg, mode = "npm", version = pkg.version) {
       <button id="copy-detail" class="button primary" :disabled="!code" @click="copy(code)">
         {{ mode === "npm" ? "复制安装命令" : "复制配置" }}
       </button>
+      <button class="button" @click="copy(packageUrl(selected))">复制分享链接</button>
       <p class="dialog-note">
         npm alias 保持原有导入名；overrides 用于间接依赖。pnpm 的 overrides 配置写入
         pnpm-workspace.yaml，不照搬 npm 配置。

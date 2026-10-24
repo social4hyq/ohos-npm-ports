@@ -160,3 +160,41 @@ test("package names rank before upstream names and description-only matches", as
   await expect(page.locator(".package-name").first()).toHaveText("tool-00");
   await expect(page.locator(".package-row")).toHaveCount(14);
 });
+
+test("package links open directly, survive reload and can be shared", async ({ page }) => {
+  await page.route("**/data.json", (route) => route.fulfill({ json: { packages: fixtures } }));
+  await page.goto("./?package=" + encodeURIComponent("@ohos-npm-ports/tool-00"));
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await expect(page.locator("#detail-title")).toHaveText("tool-00");
+  await page.reload();
+  await expect(page.locator("#detail-title")).toHaveText("tool-00");
+  await page.evaluate(() =>
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText: async (text) => {
+          window.copied = text;
+        },
+      },
+    }),
+  );
+  await page.getByRole("button", { name: "复制分享链接", exact: true }).click();
+  const shared = new URL(await page.evaluate(() => window.copied));
+  expect(shared.pathname).toBe("/ohos-npm-ports/");
+  expect(shared.searchParams.get("package")).toBe("@ohos-npm-ports/tool-00");
+  await page.getByLabel("关闭包详情").click();
+  await expect(page).toHaveURL((url) => !url.searchParams.has("package"));
+  await expect(page.locator(".package-row")).toHaveCount(14);
+  await page.getByLabel("查看 tool-01 包详情").click();
+  await expect(page).toHaveURL(
+    (url) => url.searchParams.get("package") === "@ohos-npm-ports/tool-01",
+  );
+});
+
+test("unknown package links offer the catalog rather than a blank dialog", async ({ page }) => {
+  await page.route("**/data.json", (route) => route.fulfill({ json: { packages: fixtures } }));
+  await page.goto("./?package=not-published");
+  await expect(page.getByRole("dialog")).not.toBeVisible();
+  await expect(page.locator("#toast")).toContainText("未找到");
+  await expect(page.locator(".package-row")).toHaveCount(14);
+});

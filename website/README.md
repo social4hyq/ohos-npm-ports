@@ -31,7 +31,7 @@ pnpm run test:e2e
 - `scripts/sync.mjs`：从仓库发现候选包，查询 npm 并生成数据快照。
 - `vite.config.mjs`：Vue Vapor 编译与 Vite+ 测试配置。
 
-不做排序、分页或 URL 状态同步；所有匹配包直接展示。
+不做排序控件、分页或搜索筛选的 URL 同步；所有匹配包直接展示。包详情支持 `?package=包名` 直达和复制分享链接，无需 Router。
 
 组件全部使用 `<script setup vapor>`，入口使用 `createVaporApp`，不是普通 Vue Virtual DOM 应用。Vue 与编译器通过 lockfile 对齐并锁定 RC；升级时必须重跑浏览器验证。
 
