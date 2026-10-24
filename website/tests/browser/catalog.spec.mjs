@@ -145,3 +145,18 @@ test("data load failure offers a working retry", async ({ page }) => {
   await expect(page.locator(".package-row")).toHaveCount(14);
   await expect(page.locator("#error")).not.toBeVisible();
 });
+
+test("package names rank before upstream names and description-only matches", async ({ page }) => {
+  const packages = fixtures.map((pkg, index) => ({
+    ...pkg,
+    upstream: index === 1 ? "tool-10-helper" : pkg.upstream,
+    description: index === 0 ? "Works with TOOL-10" : pkg.description,
+  }));
+  await page.route("**/data.json", (route) => route.fulfill({ json: { packages } }));
+  await page.goto("./");
+  await page.getByLabel("搜索包", { exact: true }).fill(" TOOL-10 ");
+  await expect(page.locator(".package-name")).toHaveText(["tool-10", "tool-01", "tool-00"]);
+  await page.getByLabel("搜索包", { exact: true }).fill("");
+  await expect(page.locator(".package-name").first()).toHaveText("tool-00");
+  await expect(page.locator(".package-row")).toHaveCount(14);
+});
