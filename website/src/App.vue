@@ -1,6 +1,8 @@
 <script setup vapor>
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
-const favicon = `${import.meta.env.BASE_URL}favicon.svg`;
+const favicon = computed(
+  () => `${import.meta.env.BASE_URL}favicon${theme.value === "dark" ? "-dark" : ""}.svg`,
+);
 const packages = ref([]);
 const loading = ref(true);
 const error = ref(false);
@@ -26,6 +28,7 @@ watch(
   theme,
   (value) => {
     document.body.dataset.theme = value;
+    document.querySelector('link[rel="icon"]').href = favicon.value;
     try {
       localStorage.setItem("theme", value);
     } catch {

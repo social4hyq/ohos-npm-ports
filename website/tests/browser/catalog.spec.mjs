@@ -226,3 +226,20 @@ test("catalog and detail typography stays readable on narrow screens", async ({ 
     true,
   );
 });
+
+test("R01 branding follows the selected theme, including favicon", async ({ page }) => {
+  await fixture(page);
+  const logos = page.locator(".brand img");
+  for (const logo of await logos.all()) {
+    await expect(logo).toHaveAttribute("src", /\/favicon\.svg$/);
+    expect(await logo.evaluate((img) => img.complete && img.naturalWidth > 0)).toBe(true);
+  }
+  await page.getByLabel("切换深浅主题").click();
+  await expect(page.locator("body")).toHaveAttribute("data-theme", "dark");
+  await expect(page.locator('link[rel="icon"]')).toHaveAttribute("href", /\/favicon-dark\.svg$/);
+  for (const logo of await logos.all())
+    await expect(logo).toHaveAttribute("src", /\/favicon-dark\.svg$/);
+  await page.reload();
+  await expect(page.locator('link[rel="icon"]')).toHaveAttribute("href", /\/favicon-dark\.svg$/);
+  await expect(page.locator(".brand img").first()).toHaveAttribute("src", /\/favicon-dark\.svg$/);
+});
