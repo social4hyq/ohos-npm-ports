@@ -198,3 +198,31 @@ test("unknown package links offer the catalog rather than a blank dialog", async
   await expect(page.locator("#toast")).toContainText("未找到");
   await expect(page.locator(".package-row")).toHaveCount(14);
 });
+
+test("catalog and detail typography stays readable on narrow screens", async ({ page }) => {
+  await fixture(page);
+  for (const [selector, minimum] of [
+    ["body", 16],
+    [".package-name", 16],
+    [".package-description", 14],
+    [".upstream", 12],
+    [".package-version", 14],
+    ["#search", 16],
+  ]) {
+    const size = await page
+      .locator(selector)
+      .first()
+      .evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
+    expect(size, selector).toBeGreaterThanOrEqual(minimum);
+  }
+  await page.setViewportSize({ width: 320, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.getByLabel("查看 tool-00 包详情").click();
+  const size = await page
+    .locator("#detail-description")
+    .evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
+  expect(size).toBeGreaterThanOrEqual(16);
+  expect(await page.locator("#detail").evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(
+    true,
+  );
+});
