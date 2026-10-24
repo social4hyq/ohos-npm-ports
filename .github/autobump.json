@@ -1,0 +1,8 @@
+{
+  "ports": {
+    "bufferutil": { "npm": "bufferutil" },
+    "datadog-pprof": { "npm": "@datadog/pprof" },
+    "opentui-core": { "npm": "@opentui/core", "group": "opentui" },
+    "opentui-core-openharmony-arm64": { "npm": "@opentui/core", "group": "opentui" }
+  }
+}

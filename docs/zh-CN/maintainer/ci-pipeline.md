@@ -10,6 +10,7 @@
 |---|---|---|
 | `port-lint.yml` | PR | 宿主机静态检查：目录形状、patch 引用、commit message 规范（见下） |
 | `ci.yml` | push / PR | 容器内运行 `build.sh`；`push` 事件额外运行 `publish.sh` |
+| `autobump.yml` | 每日定时 / 手动 | 检测白名单 port 的上游新版本并开 PR，见 [autobump.md](autobump.md) |
 
 ## 2. port-lint：秒级、不进容器
 

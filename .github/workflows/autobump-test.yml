@@ -1,0 +1,20 @@
+name: autobump-test
+
+on:
+  pull_request:
+    paths:
+      - ".github/autobump.json"
+      - ".github/scripts/autobump.mjs"
+      - ".github/scripts/autobump.test.mjs"
+      - ".github/workflows/autobump.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - run: node --test .github/scripts/autobump.test.mjs
