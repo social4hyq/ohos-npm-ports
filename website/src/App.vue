@@ -82,11 +82,20 @@ const query = ref("");
 const status = ref("all");
 const filtered = computed(() => {
   const q = query.value.trim().toLowerCase();
-  return packages.value.filter(
-    (p) =>
-      (status.value === "all" || p.status === status.value) &&
-      [p.name, p.upstream, p.description].some((s) => s?.toLowerCase().includes(q)),
+  const candidates = packages.value.filter(
+    (p) => status.value === "all" || p.status === status.value,
   );
+  if (!q) return candidates;
+  return candidates
+    .map((pkg) => ({
+      pkg,
+      rank: [pkg.name, pkg.upstream, pkg.description].findIndex((text) =>
+        text?.toLowerCase().includes(q),
+      ),
+    }))
+    .filter((match) => match.rank >= 0)
+    .sort((a, b) => a.rank - b.rank)
+    .map((match) => match.pkg);
 });
 function clear() {
   query.value = "";
