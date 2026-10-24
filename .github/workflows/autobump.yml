@@ -1,0 +1,131 @@
+name: autobump
+
+# 参照 Homebrew/homebrew-core 的 autobump：定时检测白名单 port 的上游新版本，
+# 自动生成新版本目录并开 PR；PR 与人工 PR 走同一条 CI，不自动合并。
+# 白名单与映射见 .github/autobump.json；设计与运维见 docs/zh-CN/maintainer/autobump.md。
+#
+# 前置（一次性）：secret AUTOBUMP_TOKEN（fine-grained PAT：Contents / Pull requests / Workflows 读写），
+# 以及 repo variable AUTOBUMP_ENABLED=true。用 PAT 而不是 GITHUB_TOKEN 是因为后者开的 PR 不会触发 ci.yml。
+
+on:
+  schedule:
+    - cron: '0 1 * * *'
+  workflow_dispatch:
+    inputs:
+      ports:
+        description: '只处理这些 port（逗号分隔，可选）'
+        required: false
+        type: string
+      dry_run:
+        description: '只改写并输出 diff，不推送、不开 PR'
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: autobump
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    if: vars.AUTOBUMP_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Detect outdated ports
+        id: plan
+        env:
+          ONLY_PORTS: ${{ inputs.ports }}
+        run: |
+          if [ -n "$ONLY_PORTS" ]; then
+            node .github/scripts/autobump.mjs plan --ports "$ONLY_PORTS"
+          else
+            node .github/scripts/autobump.mjs plan
+          fi
+
+  open-pr:
+    needs: plan
+    if: needs.plan.outputs.matrix != '{"include":[]}'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          token: ${{ secrets.AUTOBUMP_TOKEN }}
+
+      - name: Skip when a PR or branch already exists
+        id: dedup
+        if: ${{ !inputs.dry_run }}
+        env:
+          GH_TOKEN: ${{ secrets.AUTOBUMP_TOKEN }}
+          BRANCH: ${{ matrix.branch }}
+          KEY: ${{ matrix.key }}
+        run: |
+          if [ -n "$(git ls-remote --heads origin "$BRANCH")" ]; then
+            echo "branch $BRANCH exists, skipping" | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # 同一项目更旧版本的 autobump PR 已被新版本取代：关闭并留言
+          for old in $(gh pr list --state open --json number,headRefName --jq ".[] | select(.headRefName | test(\"^autobump/${KEY}-[0-9]\")) | .number"); do
+            gh pr close "$old" --delete-branch --comment "已被更新的上游版本取代（${BRANCH}），关闭。" || true
+          done
+
+      - name: Rewrite version directories
+        if: steps.dedup.outputs.skip != 'true'
+        env:
+          BUMPS: ${{ matrix.bumps }}
+        run: |
+          # shellcheck disable=SC2086
+          node .github/scripts/autobump.mjs bump $BUMPS
+          git status --short
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            git add -A -N ports
+            git diff --stat | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Commit, push and open PR
+        if: steps.dedup.outputs.skip != 'true' && !inputs.dry_run
+        env:
+          GH_TOKEN: ${{ secrets.AUTOBUMP_TOKEN }}
+          BRANCH: ${{ matrix.branch }}
+          TO: ${{ matrix.to }}
+          NPM: ${{ matrix.npm }}
+          BUMPS: ${{ matrix.bumps }}
+          KEY: ${{ matrix.key }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          git config user.name social4hyq
+          git config user.email social4hyq@163.com
+          git checkout -b "$BRANCH"
+          : > bumps.md
+          for b in $BUMPS; do
+            port=${b%%:*}
+            from=${b#*:}; from=${from%%:*}
+            git add "ports/$port/$TO"
+            git commit -q -m "$port: bump to $TO"
+            printf -- '- `%s`：%s → %s（port 修订号重置为 -1）\n' "$port" "$from" "$TO" >> bumps.md
+          done
+          git push origin "HEAD:refs/heads/$BRANCH"
+          [ -n "$(git ls-remote --heads origin "$BRANCH")" ] || { echo "push did not land" >&2; exit 1; }
+          {
+            printf '由 autobump 根据 npm 上游新版本自动生成，只做版本串改写，没有人工审阅 patch 与 build.sh 内容。\n\n'
+            cat bumps.md; echo
+            printf '上游：https://www.npmjs.com/package/%s/v/%s\n' "$NPM" "$TO"
+            printf '生成记录：%s\n\n' "$RUN_URL"
+            printf '**这个 PR 是什么类型**：已有 port 升级上游版本\n\n'
+            printf '合并前请等 CI（构建、发布校验、consumer 测试）全绿；patch 在新版本上打不上时需要人工重新生成。\n'
+          } > pr-body.md
+          gh pr create --base main --head "$BRANCH" --title "$KEY: bump to $TO" --body-file pr-body.md
