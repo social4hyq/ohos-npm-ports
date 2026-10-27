@@ -25,6 +25,8 @@ pnpm exec playwright install --with-deps chromium
 pnpm run test:e2e
 ```
 
+Linux 上已有 Chromium 时，可设置 `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium` 运行浏览器测试；CI 默认使用 Playwright 下载的浏览器。
+
 ## 源码
 
 - `src/App.vue`：单组件实现版面、搜索、状态筛选、详情、主题与复制。
@@ -39,11 +41,17 @@ pnpm run test:e2e
 
 上游 Vite+ 尚未发布 openharmony 平台包，因此使用完整、保留其他平台产物的 `@ohos-npm-ports/vite-plus`。相关 yuku、lightningcss 和 tsgolint 通过 overrides 使用社区 port；Vite/Vitest 与工具链版本对齐。Rolldown 的原生 openharmony binding 以 optionalDependency 补充，不影响其他平台安装；`ohos-signpost` postinstall 处理本机原生模块签名。所有平台使用同一份依赖与 lockfile。
 
+## 实时查询
+
+浏览器先加载快照，再以最多四个并发请求从 registry.npmjs.org 查询已知包的精简元数据（不使用浏览器缓存），刷新 latest 和废弃状态。详情打开时单独读取完整元数据；异步响应不会重置用户选择的版本，也不会覆盖已经切换或关闭的详情。失败的包保留原有数据，页面显示失败数量并可重试；详情也单独提示失败。npm 的 latest 未废弃不等于通过设备验证。
+
+实时查询只刷新已知包，不用 npm 搜索索引猜测新包。包清单和上游映射从源码仓库定期生成，快照时间与实时查询时间分别显示。首次开发先将源码仓库克隆到本仓库的 `.sources/`，或设置 `PORTS_ROOT` 指向其 `ports/` 目录，再执行 `sync-data`。
+
 ## 数据与部署
 
 版本与废弃状态来自官方 npm registry，不猜测稳定性、发布来源或设备兼容性。仅收录仓库相关且 registry 确认存在的候选包；不是整个 scope 的历史归档。无法确认上游包名时，不生成猜测的 alias。网络错误重试后终止同步，不发布不完整快照。
 
-GitHub Pages 的来源须设为 **GitHub Actions**。Website CI 仅在 Linux 执行安装、检查、测试、同步数据、构建与桌面/手机浏览器验证；PR 仅上传页面和截图，main 更新、每日定时和手动触发可部署。不修改 port 或 npm 发布流程。
+GitHub Pages 的来源须设为 **GitHub Actions**。Website CI 仅在 Linux 执行安装、检查、测试、同步数据、构建与桌面/手机浏览器验证；PR 仅上传页面和截图，本仓库 main 更新、每日定时和手动触发可部署。构建时另行 checkout 源码仓库的 ports 目录生成快照。部署在域名根路径 `/`，不再使用 `/ohos-npm-ports/` 子路径。不修改 port 或 npm 发布流程。
 
 ### 临时依赖兼容
 

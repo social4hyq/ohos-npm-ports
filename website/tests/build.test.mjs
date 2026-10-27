@@ -33,6 +33,7 @@ test("data sync emits only confirmed published metadata", async () => {
   try {
     await syncData({
       output,
+      portsRoot: new URL("../fixtures/ports", import.meta.url).pathname,
       fetchMetadata: async (name) =>
         name.endsWith("/bufferutil")
           ? {
@@ -53,6 +54,7 @@ test("data sync emits only confirmed published metadata", async () => {
 test("registry failures stop deployment rather than silently dropping packages", async () => {
   await assert.rejects(
     syncData({
+      portsRoot: new URL("../fixtures/ports", import.meta.url).pathname,
       fetchMetadata: async () => {
         throw new Error("registry unavailable");
       },

@@ -1,9 +1,26 @@
 <script setup vapor>
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
+import { fetchPackage, refreshCatalog } from "./registry.mjs";
 const favicon = computed(
   () => `${import.meta.env.BASE_URL}favicon${theme.value === "dark" ? "-dark" : ""}.svg`,
 );
 const packages = ref([]);
+const refreshing = ref(false);
+const liveMessage = ref("");
+const detailMessage = ref("");
+let detailRequest = 0;
+async function refresh() {
+  if (refreshing.value) return;
+  refreshing.value = true;
+  liveMessage.value = "正在查询 npm registry…";
+  const result = await refreshCatalog([...packages.value], (index, pkg) => {
+    packages.value[index] = pkg;
+  });
+  liveMessage.value = result.failed
+    ? `${result.failed} 个包实时查询失败，保留原有数据；其余已更新。`
+    : `全部包已实时查询 · ${new Date().toLocaleString("zh-CN", { hour12: false })}`;
+  refreshing.value = false;
+}
 const loading = ref(true);
 const error = ref(false);
 const ready = ref(false);
@@ -46,6 +63,7 @@ async function load() {
   try {
     const response = await fetch(`${import.meta.env.BASE_URL}data.json`, {
       signal: AbortSignal.timeout(15000),
+      cache: "no-cache",
     });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
@@ -53,6 +71,8 @@ async function load() {
     packages.value = data.packages;
     generatedAt.value = data.generatedAt;
     ready.value = true;
+    loading.value = false;
+    void refresh();
     const name = new URL(location.href).searchParams.get("package");
     if (name) {
       const pkg = packages.value.find((p) => p.name === name || p.shortName === name);
@@ -112,6 +132,7 @@ function clear() {
 }
 const dialog = ref(null);
 const version = ref("");
+let versionChanged = false;
 const mode = ref("npm");
 const code = computed(
   () => selected.value && installText(selected.value, mode.value, version.value),
@@ -125,18 +146,31 @@ function packageUrl(pkg) {
   return url.href;
 }
 function closeDetail() {
+  detailRequest++;
   selected.value = null;
   const url = new URL(location.href);
   url.searchParams.delete("package");
   history.replaceState(null, "", url);
 }
 async function openDetail(pkg) {
+  const request = ++detailRequest;
+  versionChanged = false;
+  detailMessage.value = "正在查询完整版本信息…";
   selected.value = pkg;
   version.value = pkg.version || pkg.versions[0]?.version || "";
   mode.value = "npm";
   await nextTick();
   dialog.value.showModal();
   history.replaceState(null, "", packageUrl(pkg));
+  try {
+    const current = await fetchPackage(pkg, { full: true });
+    if (request !== detailRequest) return;
+    selected.value = current;
+    if (!versionChanged) version.value = current.version || current.versions[0]?.version || "";
+    detailMessage.value = `npm 实时查询 · ${new Date(current.checkedAt).toLocaleString("zh-CN")}`;
+  } catch {
+    if (request === detailRequest) detailMessage.value = "实时查询失败，当前显示原有版本信息。";
+  }
 }
 function installText(pkg, mode = "npm", version = pkg.version) {
   if (!version) return null;
@@ -231,7 +265,7 @@ function installText(pkg, mode = "npm", version = pkg.version) {
         ><span>已发布的版本</span>
       </div>
       <p>
-        <span class="dot"></span> npm registry 数据快照<br /><time
+        <span class="dot"></span> 包清单快照（版本会实时刷新）<br /><time
           id="updated"
           :datetime="generatedAt"
           >{{
@@ -243,6 +277,12 @@ function installText(pkg, mode = "npm", version = pkg.version) {
       </p>
     </section>
 
+    <div class="live-status" role="status">
+      <p>{{ liveMessage }}</p>
+      <button class="button" :disabled="refreshing || !ready" @click="refresh">
+        刷新 npm 数据
+      </button>
+    </div>
     <section class="catalog-section" id="catalog" aria-labelledby="catalog-title">
       <div class="section-heading">
         <div class="eyebrow">THE PACKAGE DIRECTORY</div>
@@ -330,6 +370,13 @@ function installText(pkg, mode = "npm", version = pkg.version) {
                     </button>
                     <p class="package-description">{{ pkg.description }}</p>
                     <p class="upstream">{{ pkg.upstream ? `↳ ${pkg.upstream}` : pkg.name }}</p>
+                    <p class="upstream">
+                      {{
+                        pkg.checkedAt
+                          ? `npm 查询：${new Date(pkg.checkedAt).toLocaleString("zh-CN", { hour12: false })}`
+                          : "快照数据 · 尚未实时确认"
+                      }}
+                    </p>
                   </div>
                 </div>
                 <div class="package-version">
@@ -404,6 +451,7 @@ function installText(pkg, mode = "npm", version = pkg.version) {
           ×
         </button>
       </div>
+      <p role="status">{{ detailMessage }}</p>
       <h2 id="detail-title">{{ selected.shortName }}</h2>
       <p id="detail-description">{{ selected.description }}</p>
       <p id="detail-warning" class="warning" :hidden="!deprecated">
@@ -421,7 +469,7 @@ function installText(pkg, mode = "npm", version = pkg.version) {
       </div>
       <div class="version-control">
         <label for="version">发布版本</label
-        ><select id="version" v-model="version">
+        ><select id="version" v-model="version" @change="versionChanged = true">
           <option v-for="v in selected.versions" :key="v.version" :value="v.version">
             {{ v.version }}{{ v.tags.length ? ` · ${v.tags.join(", ")}` : ""
             }}{{ v.deprecated ? " · 已废弃" : "" }}
