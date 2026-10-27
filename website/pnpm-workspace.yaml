@@ -1,17 +1,14 @@
 overrides:
   "lightningcss": "npm:@ohos-npm-ports/lightningcss@1.33.0-1"
   "oxlint-tsgolint": "npm:@ohos-npm-ports/oxlint-tsgolint@7.0.2003-1"
-  "vite": "npm:@voidzero-dev/vite-plus-core@1.0.0"
-  "vitest": "5.0.1"
+  "vite": "npm:@voidzero-dev/vite-plus-core@1.4.0"
+  "vitest": "5.0.5"
   "yuku-codegen": "npm:@ohos-npm-ports/yuku-codegen@0.9.3-1"
   "yuku-parser": "npm:@ohos-npm-ports/yuku-parser@0.9.3-1"
 
 supportedArchitectures:
   os: [current, openharmony]
   cpu: [current]
-
-patchedDependencies:
-  "@ohos-npm-ports/vite-plus@1.0.0-1": patches/vite-plus.patch
 
 onlyBuiltDependencies:
   - ohos-signpost
@@ -29,8 +26,9 @@ minimumReleaseAgeExclude:
   - "@vue/server-renderer@3.6.0-rc.13"
   - "@vue/shared@3.6.0-rc.13"
   - vue@3.6.0-rc.13
+  - "@ohos-npm-ports/vite-plus@1.4.0-1"
 
 # Vite+ core uses the toolchain version, not its bundled Vite version.
 peerDependencyRules:
   allowedVersions:
-    vite: "1.0.0"
+    vite: "1.4.0"
