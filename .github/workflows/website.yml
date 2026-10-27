@@ -1,10 +1,10 @@
 name: Website
 on:
   pull_request:
-    paths: ["website/**", ".github/workflows/website.yml", "ports/**"]
+    paths: ["website/**", ".github/workflows/website.yml"]
   push:
     branches: [main]
-    paths: ["website/**", ".github/workflows/website.yml", "ports/**"]
+    paths: ["website/**", ".github/workflows/website.yml"]
   schedule:
     - cron: "23 3 * * *"
   workflow_dispatch:
@@ -22,6 +22,11 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
+      - uses: actions/checkout@v5
+        with:
+          repository: ohos-npm-ports/ohos-npm-ports
+          path: .sources
+          sparse-checkout: ports
       - uses: actions/setup-node@v5
         with:
           node-version: "24"

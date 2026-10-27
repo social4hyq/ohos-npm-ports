@@ -5,14 +5,15 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   reporter: [["list"], ["html", { open: "never" }]],
   use: {
-    baseURL: "http://localhost:4173/ohos-npm-ports/",
+    baseURL: "http://localhost:4173/",
     trace: "retain-on-failure",
+    launchOptions: { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH },
     screenshot: "only-on-failure",
     colorScheme: "light",
   },
   webServer: {
     command: "pnpm run preview",
-    url: "http://localhost:4173/ohos-npm-ports/",
+    url: "http://localhost:4173/",
     reuseExistingServer: !process.env.CI,
   },
   projects: [

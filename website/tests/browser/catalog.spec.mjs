@@ -22,6 +22,9 @@ const fixtures = Array.from({ length: 14 }, (_, index) => ({
     { version: "1.0.0-1", tags: ["legacy-1"], deprecated: "Use version 2" },
   ],
 }));
+test.beforeEach(async ({ page }) => {
+  await page.route("https://registry.npmjs.org/**", (route) => route.abort());
+});
 async function fixture(page) {
   await page.route("**/data.json", (route) =>
     route.fulfill({
@@ -31,7 +34,7 @@ async function fixture(page) {
   await page.goto("./");
   await expect(page.locator(".package-row")).toHaveCount(14);
 }
-test("real generated data loads at the GitHub Pages subpath without console errors", async ({
+test("real generated data loads at the GitHub Pages root without console errors", async ({
   page,
 }, testInfo) => {
   const errors = [];
@@ -180,7 +183,7 @@ test("package links open directly, survive reload and can be shared", async ({ p
   );
   await page.getByRole("button", { name: "复制分享链接", exact: true }).click();
   const shared = new URL(await page.evaluate(() => window.copied));
-  expect(shared.pathname).toBe("/ohos-npm-ports/");
+  expect(shared.pathname).toBe("/");
   expect(shared.searchParams.get("package")).toBe("@ohos-npm-ports/tool-00");
   await page.getByLabel("关闭包详情").click();
   await expect(page).toHaveURL((url) => !url.searchParams.has("package"));
@@ -242,4 +245,98 @@ test("R01 branding follows the selected theme, including favicon", async ({ page
   await page.reload();
   await expect(page.locator('link[rel="icon"]')).toHaveAttribute("href", /\/favicon-dark\.svg$/);
   await expect(page.locator(".brand img").first()).toHaveAttribute("src", /\/favicon-dark\.svg$/);
+});
+
+test("live versions replace snapshots and detail selection survives an in-flight query", async ({
+  page,
+}) => {
+  let release;
+  await page.route("https://registry.npmjs.org/**", async (route) => {
+    const name = decodeURIComponent(new URL(route.request().url()).pathname.slice(1));
+    if (route.request().headers().accept === "application/json") {
+      await new Promise((resolve) => {
+        release = resolve;
+      });
+    }
+    await route.fulfill({
+      json: {
+        name,
+        "dist-tags": { latest: "3.0.0-1" },
+        versions: {
+          "3.0.0-1": {},
+          "2.0.0-1": {},
+          "1.0.0-1": { deprecated: "Old version" },
+        },
+      },
+    });
+  });
+  await fixture(page);
+  await expect(page.locator(".live-status")).toContainText("全部包已实时查询");
+  await expect(page.locator(".package-version").first()).toContainText("3.0.0-1");
+  await page.getByLabel("查看 tool-00 包详情").click();
+  await page.locator("#version").selectOption("1.0.0-1");
+  await expect.poll(() => Boolean(release)).toBe(true);
+  release();
+  await expect(page.locator("#detail")).toContainText("npm 实时查询");
+  await expect(page.locator("#version")).toHaveValue("1.0.0-1");
+  await expect(page.locator("#detail-warning")).toContainText("Old version");
+});
+
+test("registry outage preserves the catalog and offers a refresh", async ({ page }) => {
+  await fixture(page);
+  await expect(page.locator(".live-status")).toContainText("14 个包实时查询失败");
+  await expect(page.locator(".package-version").first()).toContainText("2.0.0-1");
+  await page.getByRole("button", { name: "刷新 npm 数据" }).click();
+  await expect(page.locator(".live-status")).toContainText("14 个包实时查询失败");
+});
+
+test("late detail responses cannot overwrite another package", async ({ page }) => {
+  let release;
+  await page.route("https://registry.npmjs.org/**", async (route) => {
+    const name = decodeURIComponent(new URL(route.request().url()).pathname.slice(1));
+    if (route.request().headers().accept !== "application/json") return route.abort();
+    if (name.endsWith("tool-00"))
+      await new Promise((resolve) => {
+        release = resolve;
+      });
+    await route.fulfill({
+      json: { name, "dist-tags": { latest: "2.0.0-1" }, versions: { "2.0.0-1": {} } },
+    });
+  });
+  await fixture(page);
+  await page.getByLabel("查看 tool-00 包详情").click();
+  await expect.poll(() => Boolean(release)).toBe(true);
+  await page.getByLabel("关闭包详情").click();
+  await page.getByLabel("查看 tool-01 包详情").click();
+  await expect(page.locator("#detail")).toContainText("npm 实时查询");
+  const response = page.waitForResponse(
+    (response) =>
+      response.url().includes("tool-00") &&
+      response.request().headers().accept === "application/json",
+  );
+  release();
+  await (await response).finished();
+  await page.evaluate(
+    () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))),
+  );
+  await expect(page.locator("#detail-title")).toHaveText("tool-01");
+});
+
+test("direct links default to the live latest when the user has not selected a version", async ({
+  page,
+}) => {
+  await page.route("**/data.json", (route) => route.fulfill({ json: { packages: fixtures } }));
+  await page.route("https://registry.npmjs.org/**", (route) => {
+    if (route.request().headers().accept !== "application/json") return route.abort();
+    return route.fulfill({
+      json: {
+        name: fixtures[0].name,
+        "dist-tags": { latest: "3.0.0-1" },
+        versions: { "3.0.0-1": {}, "2.0.0-1": {} },
+      },
+    });
+  });
+  await page.goto("./?package=" + encodeURIComponent(fixtures[0].name));
+  await expect(page.locator("#detail")).toContainText("npm 实时查询");
+  await expect(page.locator("#version")).toHaveValue("3.0.0-1");
 });
