@@ -51,4 +51,4 @@ Linux 上已有 Chromium 时，可设置 `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/u
 
 版本与废弃状态来自官方 npm registry，不猜测稳定性、发布来源或设备兼容性。仅收录仓库相关且 registry 确认存在的候选包；不是整个 scope 的历史归档。无法确认上游包名时，不生成猜测的 alias。网络错误重试后终止同步，不发布不完整快照。
 
-GitHub Pages 的来源须设为 **GitHub Actions**。Website CI 仅在 Linux 执行安装、检查、测试、同步数据、构建与桌面/手机浏览器验证；PR 仅上传页面和截图，本仓库 main 更新、每日定时和手动触发可部署。构建时另行 checkout 源码仓库的 ports 目录生成快照。部署在域名根路径 `/`，不再使用 `/ohos-npm-ports/` 子路径。不修改 port 或 npm 发布流程。
+GitHub Pages 的来源须设为 **GitHub Actions**。Website CI 仅在 Linux 执行安装、检查、测试、同步数据、构建与桌面/手机浏览器验证；PR 仅上传页面和截图，本仓库 main 更新、每日定时和手动触发可部署。构建时另行 checkout 源码仓库的 ports 目录生成快照。构建根据 `GITHUB_REPOSITORY` 自动选择 Pages 路径：`<owner>/<owner>.github.io` 使用 `/`，普通仓库使用 `/<repository>/`，本地开发缺省为 `/`。自定义域名或手工预览可用 `PAGES_BASE_PATH=/`（或其他带首尾斜杠的路径）覆盖；构建与浏览器测试必须使用相同值。CI 先验证根路径，再重新构建并验证当前仓库路径；仅上传最后这份与部署地址匹配的产物。不修改 port 或 npm 发布流程。

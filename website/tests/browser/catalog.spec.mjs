@@ -1,4 +1,6 @@
 import { test, expect } from "@playwright/test";
+import { pagesBase } from "../../scripts/pages-base.mjs";
+const base = pagesBase(process.env.GITHUB_REPOSITORY, process.env.PAGES_BASE_PATH);
 const fixtures = Array.from({ length: 14 }, (_, index) => ({
   name: `@ohos-npm-ports/tool-${String(index).padStart(2, "0")}`,
   shortName: `tool-${String(index).padStart(2, "0")}`,
@@ -34,7 +36,7 @@ async function fixture(page) {
   await page.goto("./");
   await expect(page.locator(".package-row")).toHaveCount(14);
 }
-test("real generated data loads at the GitHub Pages root without console errors", async ({
+test("real generated data loads at the configured GitHub Pages path without console errors", async ({
   page,
 }, testInfo) => {
   const errors = [];
@@ -43,6 +45,8 @@ test("real generated data loads at the GitHub Pages root without console errors"
   await expect(page.locator(".package-row").first()).toBeVisible();
   await expect(page.locator("#total-count")).not.toHaveText("—");
   expect(errors).toEqual([]);
+  const script = await page.locator('script[type="module"][src]').first().getAttribute("src");
+  expect(script?.startsWith(`${base}assets/`)).toBe(true);
   expect(
     await page.evaluate(() => document.getElementById("app").__vue_app__._component.__vapor),
   ).toBe(true);
@@ -183,7 +187,7 @@ test("package links open directly, survive reload and can be shared", async ({ p
   );
   await page.getByRole("button", { name: "复制分享链接", exact: true }).click();
   const shared = new URL(await page.evaluate(() => window.copied));
-  expect(shared.pathname).toBe("/");
+  expect(shared.pathname).toBe(base);
   expect(shared.searchParams.get("package")).toBe("@ohos-npm-ports/tool-00");
   await page.getByLabel("关闭包详情").click();
   await expect(page).toHaveURL((url) => !url.searchParams.has("package"));

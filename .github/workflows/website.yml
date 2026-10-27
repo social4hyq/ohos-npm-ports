@@ -37,9 +37,19 @@ jobs:
       - run: pnpm run check
       - run: pnpm test
       - run: pnpm run sync-data
-      - run: pnpm run build
+      - name: Build domain-root variant
+        run: pnpm run build
+        env:
+          PAGES_BASE_PATH: /
       - run: pnpm exec playwright install --with-deps --only-shell chromium
-      - run: pnpm run test:e2e
+      - name: Test domain-root variant
+        run: pnpm run test:e2e
+        env:
+          PAGES_BASE_PATH: /
+      - name: Build repository Pages variant
+        run: pnpm run build
+      - name: Test repository Pages variant
+        run: pnpm run test:e2e
       - uses: actions/upload-artifact@v7
         if: always()
         with:

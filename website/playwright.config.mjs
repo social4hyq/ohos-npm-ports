@@ -1,11 +1,13 @@
 import { defineConfig } from "@playwright/test";
+import { pagesBase } from "./scripts/pages-base.mjs";
+const baseURL = `http://localhost:4173${pagesBase(process.env.GITHUB_REPOSITORY, process.env.PAGES_BASE_PATH)}`;
 export default defineConfig({
   testDir: "./tests/browser",
   fullyParallel: true,
   retries: process.env.CI ? 1 : 0,
   reporter: [["list"], ["html", { open: "never" }]],
   use: {
-    baseURL: "http://localhost:4173/",
+    baseURL,
     trace: "retain-on-failure",
     launchOptions: { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH },
     screenshot: "only-on-failure",
@@ -13,7 +15,7 @@ export default defineConfig({
   },
   webServer: {
     command: "pnpm run preview",
-    url: "http://localhost:4173/",
+    url: baseURL,
     reuseExistingServer: !process.env.CI,
   },
   projects: [
