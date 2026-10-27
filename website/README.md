@@ -52,9 +52,3 @@ Linux 上已有 Chromium 时，可设置 `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/u
 版本与废弃状态来自官方 npm registry，不猜测稳定性、发布来源或设备兼容性。仅收录仓库相关且 registry 确认存在的候选包；不是整个 scope 的历史归档。无法确认上游包名时，不生成猜测的 alias。网络错误重试后终止同步，不发布不完整快照。
 
 GitHub Pages 的来源须设为 **GitHub Actions**。Website CI 仅在 Linux 执行安装、检查、测试、同步数据、构建与桌面/手机浏览器验证；PR 仅上传页面和截图，本仓库 main 更新、每日定时和手动触发可部署。构建时另行 checkout 源码仓库的 ports 目录生成快照。部署在域名根路径 `/`，不再使用 `/ohos-npm-ports/` 子路径。不修改 port 或 npm 发布流程。
-
-### 临时依赖兼容
-
-`patches/vite-plus.patch` 通过 pnpm 的 patchedDependencies 应用：仅在包名为社区 port 时，从 CLI 版本中剥离移植修订号，再与 core 版本精确比较。当前 port 的 `1.0.0-1` 否则会错误地要求不存在的 core `1.0.0-1`，而非上游 core `1.0.0`。未修改 node_modules 的生成脚本，也没有自制构建器；port 修复并发布后可删除此补丁。
-
-当前移植工具链的 Vitest 开发服务依赖存在 npm audit moderate 告警。本站使用 Node 模式一次性测试，不开启 Vitest UI/Browser 服务，部署内容仅为静态文件；不要将开发/测试服务开放到公网。后续升级工具链时需同步核对社区 port 与告警修复状态。

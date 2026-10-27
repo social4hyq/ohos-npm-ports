@@ -19,7 +19,7 @@
     "@playwright/test": "1.62.1",
     "@vitejs/plugin-vue": "6.0.10",
     "ohos-signpost": "1.1.2",
-    "vite-plus": "npm:@ohos-npm-ports/vite-plus@1.0.0-1"
+    "vite-plus": "npm:@ohos-npm-ports/vite-plus@1.4.0-1"
   },
   "optionalDependencies": {
     "@rolldown/binding-openharmony-arm64": "1.2.11"
