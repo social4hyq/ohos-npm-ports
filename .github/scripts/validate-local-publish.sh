@@ -164,7 +164,7 @@ done < "$temporary/packages.txt"
 node -e '
   const fs=require("fs");
   const packages=fs.readFileSync(process.argv[1],"utf8").trim().split("\n").map(JSON.parse);
-  fs.writeFileSync(process.argv[2],JSON.stringify({sourceSha:process.env.GITHUB_SHA,portDir:process.argv[3],packages},null,2)+"\n");
+  fs.writeFileSync(process.argv[2],JSON.stringify({sourceSha:require("child_process").execFileSync("git",["-c",`safe.directory=${process.cwd()}`,"rev-parse","HEAD"],{encoding:"utf8"}).trim(),portDir:process.argv[3],packages},null,2)+"\n");
 ' "$temporary/packed.jsonl" "$artifacts/manifest.json" "$1"
 if [ -n "${GITHUB_OUTPUT:-}" ]; then
   echo "artifact-name=port-$(basename "$(dirname "$port_dir")")-$(basename "$port_dir")" >> "$GITHUB_OUTPUT"

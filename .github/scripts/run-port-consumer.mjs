@@ -112,7 +112,7 @@ function manifests(directory, required) {
       assert.equal(inputs(manifest.sourceSha), current, `Replayed build inputs changed: ${manifest.portDir}`);
       console.log(`Reusing ${manifest.portDir} from ${manifest.sourceSha}: build inputs identical`);
     } else {
-      assert.equal(manifest.sourceSha, process.env.GITHUB_SHA, `Artifact from a different commit: ${path}`);
+      assert.equal(manifest.sourceSha, execFileSync('git', ['-c', `safe.directory=${repo}`, 'rev-parse', 'HEAD'], {cwd:repo,encoding:'utf8'}).trim(), `Artifact from a different commit: ${path}`);
     }
     return manifest.packages.map((pkg) => {
       assert.equal(pkg.filename, basename(pkg.filename));

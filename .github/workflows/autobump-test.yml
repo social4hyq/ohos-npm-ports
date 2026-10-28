@@ -1,0 +1,21 @@
+name: autobump-test
+on:
+  pull_request:
+    paths:
+      - '.github/autobump.json'
+      - '.github/scripts/autobump*'
+      - '.github/workflows/autobump*'
+      - '.github/workflows/ci.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - run: node --test .github/scripts/autobump*.test.mjs .github/scripts/ci-workflow.test.mjs .github/scripts/consumer-plan.test.mjs
+      - uses: docker://rhysd/actionlint:1.7.12
+        with:
+          args: -color

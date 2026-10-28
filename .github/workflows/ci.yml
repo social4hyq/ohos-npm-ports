@@ -1,8 +1,18 @@
 name: CI
+run-name: >-
+  ${{ inputs.autobump-pr && format('autobump #{0} {1}', inputs.autobump-pr, inputs.autobump-sha) || format('CI {0} {1}', github.event_name, github.ref_name) }}
 
 on:
   workflow_dispatch:
     inputs:
+      autobump-pr:
+        description: 'Same-repository autobump PR to validate; requires autobump-sha'
+        required: false
+        type: string
+      autobump-sha:
+        description: 'Expected immutable PR head SHA'
+        required: false
+        type: string
       artifact-run-id:
         description: 'Existing artifact run to replay; empty builds the selected ports'
         required: false
@@ -37,6 +47,7 @@ on:
 permissions:
   contents: read
   actions: read
+  pull-requests: read
 
 concurrency:
   # Only pull_request runs share a group (superseded runs are cancelled). Push and manual runs get a
@@ -59,12 +70,39 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Validate autobump request
+        id: autobump
+        if: inputs.autobump-pr != '' || inputs.autobump-sha != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          AUTOBUMP_PR: ${{ inputs.autobump-pr }}
+          AUTOBUMP_SHA: ${{ inputs.autobump-sha }}
+          ARTIFACT_RUN_ID: ${{ inputs.artifact-run-id }}
+          CONSUMER_SELECTION: ${{ inputs.consumer-ports }}
+        run: node .github/scripts/autobump-ci.mjs validate
+
+      - name: Checkout validated head
+        if: inputs.autobump-pr != ''
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.autobump-sha }}
+          fetch-depth: 0
+
       - name: Find changed port versions
         id: set-matrix
         env:
           CONSUMER_SELECTION: ${{ github.event_name == 'workflow_dispatch' && inputs.consumer-ports || '' }}
           ARTIFACT_RUN_ID: ${{ inputs.artifact-run-id }}
+          AUTOBUMP_BASE: ${{ steps.autobump.outputs.base }}
         run: |
+          if [ -n "$AUTOBUMP_BASE" ]; then
+            AUTOBUMP_BASE=$(git merge-base "$AUTOBUMP_BASE" HEAD)
+            git diff --name-only --diff-filter=d "$AUTOBUMP_BASE" HEAD | node .github/scripts/consumer-plan.mjs >> "$GITHUB_OUTPUT"
+            git diff --name-only --diff-filter=d "$AUTOBUMP_BASE" HEAD | sed -nE 's|^(ports/[^/]+/[^/]+)/.*|\1|p' | sort -u | xargs bash .github/scripts/port-lint.sh
+            BASE="$AUTOBUMP_BASE" HEAD="$(git rev-parse HEAD)" bash .github/scripts/lint-commit-messages.sh
+            echo 'replay=false' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           if [ "${{ github.event_name }}" = workflow_dispatch ]; then
             printf '.github/scripts/run-port-consumer.mjs\n' | node .github/scripts/consumer-plan.mjs >> "$GITHUB_OUTPUT"
             if [ -n "$ARTIFACT_RUN_ID" ]; then
@@ -123,6 +161,8 @@ jobs:
 
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.autobump-sha || github.sha }}
 
       - name: Build
         # Three things keep the brew toolchain usable on an image that lags behind the brew formulas:
@@ -134,7 +174,8 @@ jobs:
           HOMEBREW_NO_INSTALL_UPGRADE: "1"
         run: |
           brew update
-          export PATH="$(brew --prefix rust)/bin:$PATH"
+          PATH="$(brew --prefix rust)/bin:$PATH"
+          export PATH
           cd "${{ matrix.dir }}"
           ./build.sh
 
@@ -174,6 +215,8 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.autobump-sha || github.sha }}
       - uses: ./.github/actions/consumer-job
         with:
           port: ${{ matrix.port }}
@@ -196,6 +239,8 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.autobump-sha || github.sha }}
       - uses: ./.github/actions/consumer-job
         with:
           port: ${{ matrix.port }}
@@ -218,6 +263,8 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.autobump-sha || github.sha }}
       - uses: ./.github/actions/consumer-job
         with:
           port: ${{ matrix.port }}
@@ -240,6 +287,8 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.autobump-sha || github.sha }}
       - uses: ./.github/actions/consumer-job
         with:
           port: ${{ matrix.port }}
@@ -266,6 +315,7 @@ jobs:
           node-version: '24'
       - uses: actions/checkout@v7
         with:
+          ref: ${{ inputs.autobump-sha || github.sha }}
           fetch-depth: 1
       - name: Select closure artifacts
         id: closure-artifacts
@@ -318,3 +368,21 @@ jobs:
       - name: Restore workspace ownership
         if: always()
         run: sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE"
+
+  autobump-report:
+    needs: [detect-changes, build-and-publish, consumer-tests-windows-x64, consumer-tests-linux-arm64, consumer-tests-linux-x64, consumer-tests-darwin-arm64, consumer-tests-openharmony]
+    if: always() && inputs.autobump-pr != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v7
+      - name: Report immutable validation result
+        env:
+          GH_TOKEN: ${{ github.token }}
+          AUTOBUMP_PR: ${{ inputs.autobump-pr }}
+          AUTOBUMP_SHA: ${{ inputs.autobump-sha }}
+          JOB_RESULTS: ${{ toJSON(needs) }}
+        run: node .github/scripts/autobump-ci.mjs report

@@ -1,0 +1,59 @@
+name: autobump
+on:
+  schedule:
+    - cron: '0 1 * * *'
+  workflow_dispatch:
+    inputs:
+      ports:
+        description: 'Comma-separated allowlisted ports (groups expand automatically)'
+        type: string
+        required: false
+      dry_run:
+        description: 'Generate and lint only; no push, PR or CI dispatch'
+        type: boolean
+        default: true
+concurrency:
+  group: autobump
+  cancel-in-progress: false
+permissions:
+  contents: read
+jobs:
+  plan:
+    if: github.repository == 'social4hyq/ohos-npm-ports' && vars.AUTOBUMP_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+      - name: Detect versions
+        id: plan
+        env:
+          ONLY_PORTS: ${{ inputs.ports }}
+        run: node .github/scripts/autobump.mjs plan --ports "$ONLY_PORTS"
+  open-pr:
+    needs: plan
+    if: needs.plan.outputs.matrix != '{"include":[]}'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Generate PR and schedule CI
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUMP_GROUP: ${{ toJSON(matrix) }}
+          DRY_RUN: ${{ inputs.dry_run || false }}
+        run: node .github/scripts/autobump-open.mjs
