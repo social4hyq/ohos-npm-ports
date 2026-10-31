@@ -84,6 +84,19 @@ bump 矩阵按 port 隔离失败。`bump-pr` 一次处理一个 port，要求干
 
 bump 只根据 `upstream` 查询 npm registry。主 port 跟随指定 dist-tag，`@` port 只选择版本线内最高 semver；写入时精确修改 NPMBUILD 中的版本、revision、主 source/sha256 和引用 `${version}` 的 resource，重新计算对应摘要，不扫描或改写补丁，也不全局替换字符串。固定资源不随主版本误更新；npm 预览版本与源码没有可靠映射的 port 必须禁用自动 bump。自动更新不代表上游 patch 必然兼容，补丁仍需贡献者审查并经过真实构建。
 
+稳定版本的主 port 不会跟随 dist-tag 升到预发布版本：上游 `latest` 指向 RC（如 prisma）时本次跳过并打印原因；确需预览线的 port 自身版本即为预发布，或用 `upstream_tag` 选定稳定 tag。多个 port 必须配套升级时（如 prisma / prisma-client / prisma-engines，后者由固定 commit 源码构建），全部设置 `bump=false` 并写明耦合原因，由维护者手工整组升级。
+
+### AI 补丁适配（评估结论：暂不接入）
+
+tap 侧 `ai-bump.yml` 由维护者给失败 PR 打标签触发，在 OHOS 容器内让 AI 修复 formula 与补丁，再 force-push 回 PR 分支。本仓库暂不照搬，原因：
+
+- 需要 `DEEPSEEK_API_KEY`（按次计费）和能触发后续 CI 的推送令牌（PAT 或 GitHub App），本仓库当前都没有配置；
+- AI 在容器里执行自主生成的命令并处理上游 tarball 内容，只能在同仓分支、仅标签触发、仅向容器传入单一模型密钥的前提下运行，fork PR 一律跳过；
+- 本仓库的 bump 分支禁止 force push，且补丁是否正确只能由真实构建和 `grep` marker 判定，不能信 AI 的自述；
+- 修复结果必须经完整 CI 与人工审查，AI 只能产出候选补丁，不能自动合并或发布。
+
+若后续接入，约束为：`workflow_dispatch` 或维护者标签触发；追加普通提交而非 amend/force push；只允许修改该 port 目录下的 `patches/` 与 `NPMBUILD`；`bump=false` 的耦合 port 不参与；失败只打标签和评论，PR 保持草稿。在此之前，补丁不兼容的 bump PR 由 CI 构建失败暴露，维护者手工重新生成补丁。
+
 ## 8. 验证边界
 
 容器构建和跨平台 consumer 不等同于真机部署证明。目标设备上的签名、沙箱和业务行为仍需单独验证。

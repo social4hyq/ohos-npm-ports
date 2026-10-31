@@ -3,6 +3,9 @@ pkgname="prisma"
 upstream="prisma"
 version="5.1.1"
 revision=3
+bump=false
+# prisma 的本地 engines 补丁、@prisma/engines（源码构建且 bump=false）与 prisma-client 的版本必须同步，
+# 且大版本间 build/index.js 结构会变；需人工配套升级，不能由版本号直接推导。
 dist_tag="latest"
 
 packages=(

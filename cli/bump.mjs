@@ -16,6 +16,12 @@ function latestVersion(port, data) {
   if (!port.versionLine) {
     const version = data['dist-tags']?.[port.upstreamTag];
     if (!version) throw new Error(`${port.name}: no ${port.upstreamTag} dist-tag for ${port.upstream}`);
+    // A stable port never follows a dist-tag onto a prerelease (some upstreams point `latest` at an RC); ports that
+    // want a preview line already run a prerelease version, or select a stable tag with upstream_tag.
+    if (parseSemver(version).prerelease.length > 0 && parseSemver(port.version).prerelease.length === 0) {
+      console.log(`${port.name}: ${port.upstreamTag} points at prerelease ${version}; staying on stable ${port.version}`);
+      return null;
+    }
     return version;
   }
   const current = parseSemver(port.version);
