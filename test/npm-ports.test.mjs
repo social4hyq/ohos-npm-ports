@@ -531,3 +531,32 @@ test('major bump refuses to overwrite an existing version line', async (t) => {
     metadata: async () => ({ 'dist-tags': { latest: '2.0.0' } }) }), /already exists/);
   assert.equal(loadPort(root, dir).version, '1.2.3');
 });
+
+test('stable port does not follow a dist-tag onto a prerelease', async (t) => {
+  const { root, dir } = fixture(t);
+  execFileSync('git', ['add', 'ports'], { cwd: root });
+  const port = loadPort(root, dir);
+  const before = readFileSync(join(dir, 'NPMBUILD'), 'utf8');
+  const changed = await bumpPorts(root, [port], { write: true,
+    metadata: async () => ({ 'dist-tags': { latest: '2.0.0-rc.1' }, versions: ['1.2.3', '2.0.0-rc.1'] }) });
+  assert.deepEqual(changed, []);
+  assert.equal(readFileSync(join(dir, 'NPMBUILD'), 'utf8'), before);
+  assert.throws(() => readFileSync(join(`${dir}@1.2`, 'NPMBUILD')));
+});
+
+test('prerelease port keeps following its prerelease dist-tag', async (t) => {
+  const { root, dir } = fixture(t);
+  const file = join(dir, 'NPMBUILD');
+  writeFileSync(file, readFileSync(file, 'utf8').replace('version="1.2.3"', 'version="2.0.0-rc.1"').replace('dist_tag', 'upstream_tag="next"\ndist_tag'));
+  const port = loadPort(root, dir);
+  const changed = await bumpPorts(root, [port],
+    { metadata: async () => ({ 'dist-tags': { next: '2.0.0-rc.2' } }) });
+  assert.equal(changed[0].version, '2.0.0-rc.2');
+});
+
+test('prisma family is pinned to its coupled engines build', () => {
+  const root = join(import.meta.dirname, '..');
+  for (const name of ['prisma', 'prisma-client', 'prisma-engines']) {
+    assert.equal(loadPort(root, name).bump, false, name);
+  }
+});

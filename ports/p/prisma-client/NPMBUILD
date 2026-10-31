@@ -3,6 +3,8 @@ pkgname="prisma-client"
 upstream="@prisma/client"
 version="5.8.0"
 revision=3
+bump=false
+# 需与 prisma、prisma-engines 的版本配套升级，不能单独跟随上游。
 dist_tag="latest"
 
 packages=(
