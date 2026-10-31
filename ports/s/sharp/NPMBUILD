@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 pkgname="sharp"
 upstream="sharp"
-version="0.34.5"
-revision=3
+version="0.35.5"
+revision=1
 dist_tag="latest"
 
 packages=(
@@ -10,7 +10,7 @@ packages=(
 )
 vips_version=8.18.6
 source="https://registry.npmjs.org/sharp/-/sharp-${version}.tgz"
-sha256="460712506f9df808cf25bc2ba15be828bfa9179bd31b6ca47a9db624980026c3"
+sha256="3b6bbbe6b308f5c383938ca4a31926cd5d79c4651ed8c5fda16a97da2014a9ac"
 resource "vips" \
   "https://github.com/libvips/libvips/releases/download/v${vips_version}/vips-${vips_version}.tar.xz" \
   "3c41e1d5458081bfa4a5bc54e116c46259c75c6760a18027764555632b9dda3e"
