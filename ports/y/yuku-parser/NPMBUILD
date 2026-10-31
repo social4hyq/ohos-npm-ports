@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 pkgname="yuku-parser"
 upstream="yuku-parser"
-version="0.10.2"
-revision=3
+version="0.19.0"
+revision=1
 source="https://registry.npmjs.org/${pkgname}/-/${pkgname}-${version}.tgz"
-sha256="d5ac3f95579595bc2981f57b5eed227177cc40f8e8ae2cd89ffbe364bdd4b6ac"
+sha256="3655d771568e9e326a99ff5e43a6e72d4150f8098125c125e9e05d20c13172e5"
 dist_tag="latest"
 
 packages=(
@@ -14,7 +14,7 @@ slot_name="@yuku-parser/binding-openharmony-arm64"
 zig_version="0.16.0"
 resource "yuku" \
   "https://github.com/yuku-toolchain/yuku/archive/refs/tags/v${version}.tar.gz" \
-  "bc649dc0df663e7f3aeb005849f079cfc5aa838362e86806f5996c7255672f47"
+  "81f8015d458307f537865259604ee1ac6e169850ac6c280f4406387285ee613b"
 resource "zig" \
   "https://ziglang.org/download/${zig_version}/zig-aarch64-linux-${zig_version}.tar.xz" \
   "ea4b09bfb22ec6f6c6ceac57ab63efb6b46e17ab08d21f69f3a48b38e1534f17"
