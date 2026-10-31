@@ -56,11 +56,11 @@ export async function bumpPr(root, port, {
     return null;
   }
   if (changed.length !== 1) throw new Error('bump-pr accepts exactly one port');
-  const { version } = changed[0];
+  const { version, preserved } = changed[0];
   const branch = `automation/bump-${port.name}-${version}`.replace(/[^A-Za-z0-9._/-]/g, '-');
   if (git('branch', '--list', branch)) throw new Error(`Local branch already exists: ${branch}`);
   git('switch', '-c', branch);
-  git('add', '--', port.relative);
+  git('add', '--', port.relative, ...(preserved ? [preserved] : []));
   if (!git('diff', '--cached', '--name-only')) throw new Error('bump produced no tracked changes');
   const name = process.env.NPM_PORTS_GIT_NAME || gitConfig(root, 'user.name', 'ohos-npm-ports-automation[bot]', execute);
   const email = process.env.NPM_PORTS_GIT_EMAIL || gitConfig(root, 'user.email', '351004333+ohos-npm-ports-automation[bot]@users.noreply.github.com', execute);
@@ -70,7 +70,7 @@ export async function bumpPr(root, port, {
     throw new Error(`${port.name}: an open PR appeared during bump; refusing to push a competing branch`);
   }
   git('push', '-u', 'origin', `HEAD:refs/heads/${branch}`);
-  const body = `- ${port.name}: ${port.version} → ${version}\n\nThis PR was created by ohos-npm-ports-automation[bot].`;
+  const body = `- ${port.name}: ${port.version} → ${version}${preserved ? `\n\nPreserved previous version line: ${preserved}` : ''}\n\nThis PR was created by ohos-npm-ports-automation[bot].`;
   const args = ['pr', 'create', '--repo', repository, '--base', base, '--head', branch, '--title', title, '--body', body];
   gh(...args);
   const number = gh('pr', 'list', '--repo', repository, '--head', branch, '--state', 'open', '--json', 'number', '--jq', '.[0].number');
