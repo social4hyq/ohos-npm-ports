@@ -17,7 +17,7 @@ port 目录使用**发布短名**，最终主包为 `@ohos-npm-ports/<pkgname>`�
 
 port 的维护模式为滚动更新，每个 port 目录只保留最新版本的数据。如果需要锁版本，则需要为包名加一个 `@<版本线>` 后缀，作为一个新的 port 录入。例如：`ports/l/lightningcss@1.32`。
 
-版本线后缀通常使用 `@major`、`@major.minor` 或完整版本后缀，0.x 通常至少保留 minor。`@` 后缀不属于 npm 包名，且必须使用非 `latest` 的 dist-tag。新增旧版本线需先确认维护必要性。
+版本线后缀通常使用 `@major`、`@major.minor` 或完整版本后缀，0.x 通常至少保留 minor。`@` 后缀不属于 npm 包名，且必须使用非 `latest` 的 dist-tag。新增旧版本线需先确认维护必要性。 自动 bump 滚动 port 跨主版本时，先将当前配方及其受 Git 跟踪的文件保留为 `@major.minor`，dist-tag 设为 `legacy-major.minor`；若目标目录已存在则停止并交由人工处理。生成的升级仍需审查补丁和构建。
 
 ## 2. NPMBUILD
 

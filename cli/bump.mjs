@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { compareSemver, inVersionLine, parseSemver } from './semver.mjs';
 import { npmCommand } from './build.mjs';
 
@@ -112,6 +113,31 @@ async function changeFor(port, registry, metadataFor, download) {
   return { version, revision: '1', source, sha256, resources };
 }
 
+function preserveVersionLine(root, port) {
+  const { major, minor } = parseSemver(port.version);
+  const suffix = `${major}.${minor}`;
+  const relative = `${port.relative}@${suffix}`;
+  const target = join(root, relative);
+  if (existsSync(target)) throw new Error(`Version line ${relative} already exists; review manually`);
+  const files = execFileSync('git', ['ls-files', '-z', '--', port.relative], { cwd: root, encoding: 'utf8' }).split('\0').filter(Boolean);
+  if (!files.includes(`${port.relative}/NPMBUILD`)) throw new Error('NPMBUILD must be tracked before preserving a version line');
+  try {
+    for (const file of files) {
+      const dest = join(target, file.slice(port.relative.length + 1));
+      mkdirSync(dirname(dest), { recursive: true });
+      copyFileSync(join(root, file), dest);
+    }
+    const build = join(target, 'NPMBUILD');
+    const source = readFileSync(build, 'utf8');
+    if (!/^dist_tag=/m.test(source)) throw new Error('NPMBUILD needs an explicit dist_tag to preserve a version line');
+    writeFileSync(build, replaceAssignment(source, 'dist_tag', `legacy-${suffix}`));
+  } catch (error) {
+    rmSync(target, { recursive: true, force: true });
+    throw error;
+  }
+  return relative;
+}
+
 export async function bumpPorts(root, ports, {
   write = false,
   registry = '',
@@ -135,6 +161,9 @@ export async function bumpPorts(root, ports, {
       console.log(`${port.name}: ${port.version} -> ${change.version}${write ? '' : ' (dry run)'}`);
       changed.push({ port, ...change });
       if (!write) continue;
+      if (!port.versionLine && parseSemver(change.version).major > parseSemver(port.version).major) {
+        changed.at(-1).preserved = preserveVersionLine(root, port);
+      }
       const file = `${port.dir}/NPMBUILD`;
       const text = updatePortText(readFileSync(file, 'utf8'), change);
       writeFileSync(file, text);
