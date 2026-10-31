@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 pkgname="prisma-client"
 upstream="@prisma/client"
-version="5.8.0"
-revision=3
+version="7.10.1"
+revision=1
 dist_tag="latest"
 
 packages=(
@@ -11,7 +11,7 @@ packages=(
 work_dir="$NPMBUILD_DIR"
 build_dir="${work_dir}/build"
 source="https://registry.npmjs.org/@prisma/client/-/client-${version}.tgz"
-sha256="61398ed8615cf6ab560c4aaf88499ed83a559f0d941cc8c1b43f66cebe93dfc4"
+sha256="f61ebcb6989355c08edeb0596753d8afee6429eadab7b50074dedcb220cfc622"
 
 prepare() {
   # ============================================================
