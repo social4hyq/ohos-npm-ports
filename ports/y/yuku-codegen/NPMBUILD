@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 pkgname="yuku-codegen"
 upstream="yuku-codegen"
-version="0.10.2"
-revision=3
+version="0.19.0"
+revision=1
 source="https://registry.npmjs.org/${pkgname}/-/${pkgname}-${version}.tgz"
-sha256="f4ea9116966244be684a5450006ad9252a8d759c823458f833885c6522991918"
+sha256="c836e4666aa8db2c64f87c433d26cf14d35ce3c02061722bc9b4e4770e7f2491"
 dist_tag="latest"
 
 packages=(
@@ -14,7 +14,7 @@ slot_name="@yuku-codegen/binding-openharmony-arm64"
 zig_version="0.16.0"
 resource "yuku" \
   "https://github.com/yuku-toolchain/yuku/archive/refs/tags/v${version}.tar.gz" \
-  "bc649dc0df663e7f3aeb005849f079cfc5aa838362e86806f5996c7255672f47"
+  "81f8015d458307f537865259604ee1ac6e169850ac6c280f4406387285ee613b"
 resource "zig" \
   "https://ziglang.org/download/${zig_version}/zig-aarch64-linux-${zig_version}.tar.xz" \
   "ea4b09bfb22ec6f6c6ceac57ab63efb6b46e17ab08d21f69f3a48b38e1534f17"
