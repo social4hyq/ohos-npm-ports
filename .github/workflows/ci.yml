@@ -210,7 +210,7 @@ jobs:
           compression-level: 0
           retention-days: 7
 
-  # 构建输入没变、版本已在 npm 上的 port 不重建：直接取已发布的 tarball，让 consumer 测的正是用户会装到的包
+  # 构建输入没变、版本已在 npm 上的 port 不重建：直接取已发布的 tarball，让 consumer 测的正是用户会装到的包（fork 上验证 fetch 路径用）
   fetch:
     needs: [detect-changes, external-build-approval]
     if: >
