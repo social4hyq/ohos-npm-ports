@@ -57,11 +57,11 @@ export async function bumpPr(root, port, {
     return null;
   }
   if (changed.length !== 1) throw new Error('bump-pr accepts exactly one port');
-  const { version } = changed[0];
+  const { version, preserved } = changed[0];
   const branch = `automation/bump-${port.name}-${version}`.replace(/[^A-Za-z0-9._/-]/g, '-');
   if (git('branch', '--list', branch)) throw new Error(`Local branch already exists: ${branch}`);
   git('switch', '-c', branch);
-  git('add', '--', port.relative);
+  git('add', '--', port.relative, ...(preserved ? [preserved] : []));
   if (!git('diff', '--cached', '--name-only')) throw new Error('bump produced no tracked changes');
   const name = process.env.NPM_PORTS_GIT_NAME || gitConfig(root, 'user.name', 'github-actions[bot]', execute);
   const email = process.env.NPM_PORTS_GIT_EMAIL || gitConfig(root, 'user.email', '41898282+github-actions[bot]@users.noreply.github.com', execute);
@@ -71,7 +71,7 @@ export async function bumpPr(root, port, {
     throw new Error(`${port.name}: an open PR appeared during bump; refusing to push a competing branch`);
   }
   git('push', '-u', 'origin', `HEAD:refs/heads/${branch}`);
-  const body = `Automated NPMBUILD upstream bump.\n\n- ${port.name}: ${port.version} → ${version}-1\n\nCI runs automatically for ordinary PRs. Draft PRs start CI when marked ready for review. Patch context and upstream build changes still require maintainer review.`;
+  const body = `Automated NPMBUILD upstream bump.\n\n- ${port.name}: ${port.version} → ${version}-1\n\n${preserved ? `\n- Preserved previous version line: ${preserved}\n` : ''}\nCI runs automatically for ordinary PRs. Draft PRs start CI when marked ready for review. Patch context and upstream build changes still require maintainer review.`;
   const args = ['pr', 'create', '--repo', repository, '--base', base, '--head', branch, '--title', title, '--body', body];
   if (draft) args.push('--draft');
   gh(...args);

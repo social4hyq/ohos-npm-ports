@@ -504,3 +504,30 @@ test('bump-pr does not create branches when the port is current', async () => {
   assert.equal(result, null);
   assert.equal(commands.some((command) => command.includes('switch -c')), false);
 });
+
+test('major bump preserves the tracked old minor line without build outputs', async (t) => {
+  const { root, dir } = fixture(t);
+  execFileSync('git', ['add', 'ports'], { cwd: root });
+  mkdirSync(join(dir, 'build'));
+  writeFileSync(join(dir, 'build', 'artifact'), 'ignored');
+  const port = loadPort(root, dir);
+  const result = await bumpPorts(root, [port], { write: true,
+    metadata: async () => ({ 'dist-tags': { latest: '2.0.0' }, versions: ['2.0.0'] }) });
+  assert.equal(result[0].preserved, 'ports/d/demo@1.2');
+  const old = loadPort(root, 'demo@1.2');
+  assert.equal(old.version, '1.2.3');
+  assert.equal(old.revision, 4);
+  assert.equal(old.distTag, 'legacy-1.2');
+  assert.equal(loadPort(root, 'demo').version, '2.0.0');
+  assert.throws(() => readFileSync(join(old.dir, 'build', 'artifact')));
+});
+
+test('major bump refuses to overwrite an existing version line', async (t) => {
+  const { root, dir } = fixture(t);
+  execFileSync('git', ['add', 'ports'], { cwd: root });
+  mkdirSync(`${dir}@1.2`);
+  const port = loadPort(root, dir);
+  await assert.rejects(bumpPorts(root, [port], { write: true,
+    metadata: async () => ({ 'dist-tags': { latest: '2.0.0' } }) }), /already exists/);
+  assert.equal(loadPort(root, dir).version, '1.2.3');
+});
