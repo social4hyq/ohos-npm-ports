@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 pkgname="prisma"
 upstream="prisma"
-version="5.1.1"
-revision=3
+version="8.0.0-rc.29"
+revision=1
 dist_tag="latest"
 
 packages=(
@@ -11,7 +11,7 @@ packages=(
 work_dir="$NPMBUILD_DIR"
 build_dir="${work_dir}/build"
 source="https://registry.npmjs.org/${pkgname}/-/${pkgname}-${version}.tgz"
-sha256="82290a4f68947526fbfea3a924d8ae91b9b7e6080b708d98db8bae188aa949b1"
+sha256="82571b05c3a41080e11bf9910d9faedb7eeb0eb14550f3669e9cffdd98f2e1c4"
 
 prepare() {
   # ============================================================
